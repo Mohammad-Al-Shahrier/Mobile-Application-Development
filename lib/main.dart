@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'screens/splash_screen.dart';
+import 'screens/login_screen.dart';
 
 void main() {
   runApp(const QEasyApp());
@@ -25,18 +25,10 @@ class QEasyApp extends StatelessWidget {
           backgroundColor: Colors.white,
           elevation: 0,
           centerTitle: true,
-          iconTheme: IconThemeData(
-            color: Colors.black,
-          ),
-          titleTextStyle: TextStyle(
-            color: Colors.black,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
         ),
       ),
 
-      home: const SplashScreen(),
+      home: const LoginScreen(),
     );
   }
 }
