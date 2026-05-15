@@ -2,11 +2,10 @@ import 'package:flutter/material.dart';
 
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
-
 import 'screens/registration_screen.dart';
+import 'screens/dashboard_screen.dart';
 
-/*import 'screens/dashboard_screen.dart';
-import 'screens/my_queues_screen.dart';
+/*import 'screens/my_queues_screen.dart';
 import 'screens/my_profile_screen.dart';*/
 
 class AppRoutes {
@@ -14,9 +13,9 @@ class AppRoutes {
   static const String splash = "/";
   static const String login = "/login";
   static const String registration = "/registration";
+  static const String dashboard = "/dashboard";
 
-  /*static const String dashboard = "/dashboard";
-  static const String myQueues = "/my-queues";
+  /*static const String myQueues = "/my-queues";
   static const String myProfile = "/my-profile";*/
 
   // Route Generator
@@ -39,12 +38,12 @@ class AppRoutes {
           builder: (_) => const RegistrationScreen(),
         );
 
-      /*case dashboard:
+      case dashboard:
         return MaterialPageRoute(
           builder: (_) => const DashboardScreen(),
         );
 
-      case myQueues:
+      /*case myQueues:
         return MaterialPageRoute(
           builder: (_) => const MyQueuesScreen(),
         );
