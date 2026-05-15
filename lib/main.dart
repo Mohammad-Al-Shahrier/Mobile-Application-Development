@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'screens/login_screen.dart';
+import 'app_routes.dart';
 
 void main() {
   runApp(const QEasyApp());
@@ -28,7 +28,9 @@ class QEasyApp extends StatelessWidget {
         ),
       ),
 
-      home: const LoginScreen(),
+      // ROUTES
+      initialRoute: AppRoutes.login,
+      onGenerateRoute: AppRoutes.generateRoute,
     );
   }
 }
