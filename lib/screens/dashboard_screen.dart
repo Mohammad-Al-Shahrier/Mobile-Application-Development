@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:qeasy/screens/my_queues_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -60,7 +61,8 @@ class _DashboardScreenState
     },
   ];
 
-  late List<Map<String, String>> filteredCenters;
+  late List<Map<String, String>>
+      filteredCenters;
 
   @override
   void initState() {
@@ -235,7 +237,8 @@ class _DashboardScreenState
               decoration: const BoxDecoration(
                 borderRadius: BorderRadius.only(
                   bottomLeft: Radius.circular(28),
-                  bottomRight: Radius.circular(28),
+                  bottomRight:
+                      Radius.circular(28),
                 ),
 
                 gradient: LinearGradient(
@@ -283,7 +286,8 @@ class _DashboardScreenState
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 34,
-                      fontWeight: FontWeight.bold,
+                      fontWeight:
+                          FontWeight.bold,
                       height: 1,
                     ),
                   ),
@@ -293,7 +297,8 @@ class _DashboardScreenState
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 34,
-                      fontWeight: FontWeight.bold,
+                      fontWeight:
+                          FontWeight.bold,
                       height: 1,
                     ),
                   ),
@@ -310,7 +315,8 @@ class _DashboardScreenState
 
                         decoration:
                             const BoxDecoration(
-                          color: Color(0xFFFF3B30),
+                          color:
+                              Color(0xFFFF3B30),
                           shape: BoxShape.circle,
                         ),
 
@@ -328,14 +334,16 @@ class _DashboardScreenState
                         child: Container(
                           height: 46,
 
-                          decoration: BoxDecoration(
+                          decoration:
+                              BoxDecoration(
                             borderRadius:
                                 BorderRadius.circular(
                               30,
                             ),
 
                             border: Border.all(
-                              color: Colors.white,
+                              color:
+                                  Colors.white,
                               width: 1,
                             ),
                           ),
@@ -365,21 +373,25 @@ class _DashboardScreenState
 
                               prefixIcon: Icon(
                                 Icons.search,
-                                color: Colors.white,
+                                color:
+                                    Colors.white,
                                 size: 22,
                               ),
 
                               suffixIcon: Icon(
                                 Icons.search,
-                                color: Colors.white,
+                                color:
+                                    Colors.white,
                                 size: 22,
                               ),
 
                               hintText:
                                   "Search by location or center name",
 
-                              hintStyle: TextStyle(
-                                color: Colors.white70,
+                              hintStyle:
+                                  TextStyle(
+                                color:
+                                    Colors.white70,
                                 fontSize: 13,
                               ),
                             ),
@@ -400,8 +412,10 @@ class _DashboardScreenState
 
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
+                    begin:
+                        Alignment.centerLeft,
+                    end:
+                        Alignment.centerRight,
                     colors: [
                       Color(0xFF0047B3),
                       Color(0xFFB65AD8),
@@ -410,7 +424,8 @@ class _DashboardScreenState
                 ),
 
                 child: Padding(
-                  padding: const EdgeInsets.all(14),
+                  padding:
+                      const EdgeInsets.all(14),
 
                   child: Column(
                     crossAxisAlignment:
@@ -435,7 +450,8 @@ class _DashboardScreenState
                               const BouncingScrollPhysics(),
 
                           itemCount:
-                              displayedCenters.length,
+                              displayedCenters
+                                  .length,
 
                           itemBuilder:
                               (context, index) {
@@ -452,7 +468,8 @@ class _DashboardScreenState
                               child: Container(
                                 decoration:
                                     BoxDecoration(
-                                  color: Colors.white,
+                                  color:
+                                      Colors.white,
                                   borderRadius:
                                       BorderRadius.circular(
                                     20,
@@ -460,8 +477,8 @@ class _DashboardScreenState
 
                                   boxShadow: [
                                     BoxShadow(
-                                      color:
-                                          Colors.black12,
+                                      color: Colors
+                                          .black12,
                                       blurRadius: 6,
                                       offset:
                                           const Offset(
@@ -511,10 +528,6 @@ class _DashboardScreenState
 
                                           children: [
                                             Row(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment
-                                                      .start,
-
                                               children: [
                                                 Expanded(
                                                   child:
@@ -523,8 +536,7 @@ class _DashboardScreenState
                                                     maxLines:
                                                         1,
                                                     overflow:
-                                                        TextOverflow
-                                                            .ellipsis,
+                                                        TextOverflow.ellipsis,
 
                                                     style:
                                                         const TextStyle(
@@ -544,8 +556,7 @@ class _DashboardScreenState
                                                 Row(
                                                   children: [
                                                     const Icon(
-                                                      Icons
-                                                          .star,
+                                                      Icons.star,
                                                       color:
                                                           Colors.orange,
                                                       size:
@@ -667,13 +678,54 @@ class _DashboardScreenState
 
       // ================= BOTTOM NAVIGATION =================
 
-      bottomNavigationBar: BottomNavigationBar(
+      bottomNavigationBar:
+          BottomNavigationBar(
         currentIndex: currentIndex,
 
         onTap: (index) {
           setState(() {
             currentIndex = index;
           });
+
+          // HOME
+          if (index == 0) {
+            return;
+          }
+
+          // MY QUEUE SCREEN
+          if (index == 1) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    const MyQueuesScreen(),
+              ),
+            );
+          }
+
+          // NOTIFICATION
+          if (index == 2) {
+            ScaffoldMessenger.of(context)
+                .showSnackBar(
+              const SnackBar(
+                content: Text(
+                  "Notification Screen",
+                ),
+              ),
+            );
+          }
+
+          // PROFILE
+          if (index == 3) {
+            ScaffoldMessenger.of(context)
+                .showSnackBar(
+              const SnackBar(
+                content: Text(
+                  "Profile Screen",
+                ),
+              ),
+            );
+          }
         },
 
         type: BottomNavigationBarType.fixed,
@@ -682,28 +734,29 @@ class _DashboardScreenState
 
         elevation: 10,
 
-        selectedItemColor: Colors.black,
-        unselectedItemColor: Colors.black54,
+        selectedItemColor: Colors.blue,
+        unselectedItemColor:
+            Colors.black54,
 
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home),
-            label: "",
+            label: "Home",
           ),
 
           BottomNavigationBarItem(
             icon: Icon(Icons.sync),
-            label: "",
+            label: "Queue",
           ),
 
           BottomNavigationBarItem(
             icon: Icon(Icons.notifications),
-            label: "",
+            label: "Notification",
           ),
 
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
-            label: "",
+            label: "Profile",
           ),
         ],
       ),
