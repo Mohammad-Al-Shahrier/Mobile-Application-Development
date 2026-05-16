@@ -1,4 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+
+import 'dashboard_screen.dart';
+import 'notification_screen.dart';
 
 class MyQueuesScreen extends StatefulWidget {
   const MyQueuesScreen({super.key});
@@ -12,23 +17,156 @@ class _MyQueuesScreenState
     extends State<MyQueuesScreen> {
   int currentIndex = 1;
 
+  int queuePosition = 3;
+  int waitingTime = 18;
+
+  bool queueCancelled = false;
+
+  Timer? timer;
+
+  bool showAllHistory = false;
+
   final List<Map<String, String>> historyList = [
     {
       "title": "City Bank PLC",
       "email": "saraaaal212@gmail.com",
-    },
-    {
-      "title": "City Bank PLC",
-      "email": "saraaaal212@gmail.com",
+      "status": "Completed",
     },
     {
       "title": "United Hospital Limited",
       "email": "saraaaal212@gmail.com",
+      "status": "Completed",
+    },
+    {
+      "title": "UrbanBite Cafe",
+      "email": "saraaaal212@gmail.com",
+      "status": "Completed",
+    },
+    {
+      "title": "BRAC Bank",
+      "email": "saraaaal212@gmail.com",
+      "status": "Completed",
+    },
+    {
+      "title": "Square Hospital",
+      "email": "saraaaal212@gmail.com",
+      "status": "Completed",
     },
   ];
 
   @override
+  void initState() {
+    super.initState();
+
+    startQueueTimer();
+  }
+
+  void startQueueTimer() {
+    timer = Timer.periodic(
+      const Duration(seconds: 5),
+      (timer) {
+        if (waitingTime > 0 &&
+            queuePosition > 0 &&
+            !queueCancelled) {
+          setState(() {
+            waitingTime--;
+
+            if (queuePosition > 1) {
+              queuePosition--;
+            }
+          });
+        } else {
+          timer.cancel();
+        }
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    timer?.cancel();
+    super.dispose();
+  }
+
+  void cancelTicket() {
+    setState(() {
+      queueCancelled = true;
+    });
+
+    timer?.cancel();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          "Queue Ticket Cancelled",
+        ),
+      ),
+    );
+  }
+
+  void viewStatus() {
+    String message = "";
+
+    if (queueCancelled) {
+      message = "Your queue has been cancelled";
+    } else if (queuePosition == 1) {
+      message =
+          "You are next in line. Please get ready.";
+    } else {
+      message =
+          "Current Position: $queuePosition\nEstimated Wait: $waitingTime mins";
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius:
+                BorderRadius.circular(18),
+          ),
+          title: const Text("Queue Status"),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text("OK"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void joinNewQueue() {
+    setState(() {
+      queueCancelled = false;
+      queuePosition = 5;
+      waitingTime = 25;
+    });
+
+    timer?.cancel();
+
+    startQueueTimer();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          "Joined New Queue Successfully",
+        ),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final displayedHistory =
+        showAllHistory
+            ? historyList
+            : historyList.take(3).toList();
+
     return Scaffold(
       backgroundColor: Colors.white,
 
@@ -39,16 +177,18 @@ class _MyQueuesScreenState
           Container(
             width: double.infinity,
             padding: const EdgeInsets.only(
-              top: 70,
+              top: 65,
               bottom: 30,
+              left: 20,
+              right: 20,
             ),
 
             decoration: const BoxDecoration(
-              color: Color(0xFFD6DEE8),
+              color: Color(0xFFDCE4EC),
 
               borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(30),
-                bottomRight: Radius.circular(30),
+                bottomLeft: Radius.circular(35),
+                bottomRight: Radius.circular(35),
               ),
             ),
 
@@ -63,12 +203,12 @@ class _MyQueuesScreenState
                   ),
                 ),
 
-                SizedBox(height: 5),
+                SizedBox(height: 8),
 
                 Text(
                   "We are there for you to find your serial",
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 13,
                     color: Colors.black54,
                   ),
                 ),
@@ -94,6 +234,9 @@ class _MyQueuesScreenState
               ),
 
               child: SingleChildScrollView(
+                physics:
+                    const BouncingScrollPhysics(),
+
                 child: Padding(
                   padding: const EdgeInsets.all(18),
 
@@ -110,13 +253,24 @@ class _MyQueuesScreenState
 
                         decoration: BoxDecoration(
                           color: const Color(
-                            0xFFE9E4EA,
+                            0xFFF2EEF3,
                           ),
 
                           borderRadius:
                               BorderRadius.circular(
-                            22,
+                            24,
                           ),
+
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black12,
+                              blurRadius: 8,
+                              offset: const Offset(
+                                0,
+                                4,
+                              ),
+                            ),
+                          ],
                         ),
 
                         child: Column(
@@ -124,21 +278,22 @@ class _MyQueuesScreenState
                             Row(
                               children: [
                                 Expanded(
-                                  child: Container(
-                                    height: 2,
-                                    color: Colors.grey
+                                  child: Divider(
+                                    color: Colors
+                                        .grey
                                         .shade400,
+                                    thickness: 1.5,
                                   ),
                                 ),
 
                                 const Padding(
                                   padding:
                                       EdgeInsets.symmetric(
-                                    horizontal: 8,
+                                    horizontal: 10,
                                   ),
 
                                   child: Text(
-                                    "Active Queues",
+                                    "Active Queue",
                                     style: TextStyle(
                                       fontWeight:
                                           FontWeight
@@ -150,27 +305,30 @@ class _MyQueuesScreenState
                                 ),
 
                                 Expanded(
-                                  child: Container(
-                                    height: 2,
-                                    color: Colors.grey
+                                  child: Divider(
+                                    color: Colors
+                                        .grey
                                         .shade400,
+                                    thickness: 1.5,
                                   ),
                                 ),
                               ],
                             ),
 
-                            const SizedBox(height: 15),
+                            const SizedBox(height: 18),
 
                             const Text(
                               "City Bank PLC",
+                              textAlign:
+                                  TextAlign.center,
                               style: TextStyle(
-                                fontSize: 34,
+                                fontSize: 32,
                                 fontWeight:
                                     FontWeight.bold,
                               ),
                             ),
 
-                            const SizedBox(height: 22),
+                            const SizedBox(height: 25),
 
                             infoRow(
                               "Ticket ID",
@@ -180,15 +338,22 @@ class _MyQueuesScreenState
                             const SizedBox(height: 14),
 
                             infoRow(
-                              "Positoin",
-                              "3",
+                              "Position",
+                              queueCancelled
+                                  ? "-"
+                                  : queuePosition
+                                      .toString(),
                             ),
 
                             const SizedBox(height: 14),
 
                             infoRow(
                               "Status",
-                              "Waiting",
+                              queueCancelled
+                                  ? "Cancelled"
+                                  : queuePosition == 1
+                                      ? "Your Turn"
+                                      : "Waiting",
                             ),
 
                             const SizedBox(height: 25),
@@ -196,31 +361,34 @@ class _MyQueuesScreenState
                             Container(
                               padding:
                                   const EdgeInsets.symmetric(
-                                horizontal: 18,
-                                vertical: 10,
+                                horizontal: 22,
+                                vertical: 12,
                               ),
 
                               decoration:
                                   BoxDecoration(
-                                color: Colors.grey
-                                    .shade300,
+                                color: Colors.white,
 
                                 borderRadius:
                                     BorderRadius.circular(
-                                  25,
+                                  30,
                                 ),
                               ),
 
-                              child: const Text(
-                                "Est. wait Time : 18 mins",
-                                style: TextStyle(
+                              child: Text(
+                                queueCancelled
+                                    ? "Queue Cancelled"
+                                    : "Est. Wait Time : $waitingTime mins",
+
+                                style: const TextStyle(
                                   fontWeight:
                                       FontWeight.bold,
+                                  fontSize: 15,
                                 ),
                               ),
                             ),
 
-                            const SizedBox(height: 18),
+                            const SizedBox(height: 25),
 
                             Row(
                               children: [
@@ -228,6 +396,12 @@ class _MyQueuesScreenState
                                   child: actionButton(
                                     text:
                                         "Cancel Ticket",
+
+                                    color:
+                                        Colors.red,
+
+                                    onTap:
+                                        cancelTicket,
                                   ),
                                 ),
 
@@ -238,7 +412,15 @@ class _MyQueuesScreenState
                                 Expanded(
                                   child: actionButton(
                                     text:
-                                        "View status",
+                                        "View Status",
+
+                                    color:
+                                        const Color(
+                                      0xFF109DFF,
+                                    ),
+
+                                    onTap:
+                                        viewStatus,
                                   ),
                                 ),
                               ],
@@ -249,7 +431,7 @@ class _MyQueuesScreenState
 
                       const SizedBox(height: 35),
 
-                      // ================= HISTORY =================
+                      // ================= HISTORY TITLE =================
 
                       const Text(
                         "History",
@@ -257,25 +439,31 @@ class _MyQueuesScreenState
                           fontSize: 34,
                           fontWeight:
                               FontWeight.bold,
-                          fontStyle: FontStyle.italic,
+                          fontStyle:
+                              FontStyle.italic,
                           color: Colors.black,
                         ),
                       ),
 
                       const SizedBox(height: 18),
 
+                      // ================= HISTORY LIST =================
+
                       ListView.builder(
                         shrinkWrap: true,
+
                         physics:
                             const NeverScrollableScrollPhysics(),
 
                         itemCount:
-                            historyList.length,
+                            displayedHistory
+                                .length,
 
                         itemBuilder:
                             (context, index) {
                           final item =
-                              historyList[index];
+                              displayedHistory[
+                                  index];
 
                           return Padding(
                             padding:
@@ -286,8 +474,8 @@ class _MyQueuesScreenState
                             child: Container(
                               padding:
                                   const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 12,
+                                horizontal: 15,
+                                vertical: 14,
                               ),
 
                               decoration:
@@ -296,20 +484,50 @@ class _MyQueuesScreenState
 
                                 borderRadius:
                                     BorderRadius.circular(
-                                  18,
+                                  20,
                                 ),
+
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors
+                                        .black12,
+                                    blurRadius: 5,
+                                    offset:
+                                        const Offset(
+                                      0,
+                                      3,
+                                    ),
+                                  ),
+                                ],
                               ),
 
                               child: Row(
                                 children: [
-                                  const Icon(
-                                    Icons.location_on,
-                                    color: Colors.red,
-                                    size: 42,
+                                  Container(
+                                    width: 50,
+                                    height: 50,
+
+                                    decoration:
+                                        const BoxDecoration(
+                                      color: Color(
+                                        0xFFECECEC,
+                                      ),
+                                      shape:
+                                          BoxShape
+                                              .circle,
+                                    ),
+
+                                    child: const Icon(
+                                      Icons
+                                          .location_on,
+                                      color:
+                                          Colors.red,
+                                      size: 28,
+                                    ),
                                   ),
 
                                   const SizedBox(
-                                    width: 10,
+                                    width: 12,
                                   ),
 
                                   Expanded(
@@ -324,10 +542,9 @@ class _MyQueuesScreenState
                                           style:
                                               const TextStyle(
                                             fontSize:
-                                                20,
+                                                19,
                                             fontWeight:
-                                                FontWeight
-                                                    .bold,
+                                                FontWeight.bold,
                                           ),
                                         ),
 
@@ -349,12 +566,37 @@ class _MyQueuesScreenState
                                     ),
                                   ),
 
-                                  const Icon(
-                                    Icons
-                                        .keyboard_arrow_right,
-                                    size: 32,
-                                    color:
-                                        Colors.black54,
+                                  Container(
+                                    padding:
+                                        const EdgeInsets.symmetric(
+                                      horizontal:
+                                          10,
+                                      vertical: 5,
+                                    ),
+
+                                    decoration:
+                                        BoxDecoration(
+                                      color: Colors
+                                          .green
+                                          .shade100,
+
+                                      borderRadius:
+                                          BorderRadius.circular(
+                                        20,
+                                      ),
+                                    ),
+
+                                    child: Text(
+                                      item["status"]!,
+                                      style:
+                                          const TextStyle(
+                                        color: Colors
+                                            .green,
+                                        fontWeight:
+                                            FontWeight
+                                                .bold,
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -363,38 +605,7 @@ class _MyQueuesScreenState
                         },
                       ),
 
-                      const SizedBox(height: 20),
-
-                      // ================= INDICATOR =================
-
-                      Row(
-                        children: [
-                          Container(
-                            width: 32,
-                            height: 7,
-
-                            decoration:
-                                BoxDecoration(
-                              color: Colors.red,
-
-                              borderRadius:
-                                  BorderRadius.circular(
-                                20,
-                              ),
-                            ),
-                          ),
-
-                          const SizedBox(width: 6),
-
-                          dotIndicator(),
-                          const SizedBox(width: 6),
-                          dotIndicator(),
-                          const SizedBox(width: 6),
-                          dotIndicator(),
-                        ],
-                      ),
-
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 12),
 
                       // ================= SEE MORE =================
 
@@ -403,11 +614,20 @@ class _MyQueuesScreenState
                             Alignment.centerRight,
 
                         child: TextButton(
-                          onPressed: () {},
+                          onPressed: () {
+                            setState(() {
+                              showAllHistory =
+                                  !showAllHistory;
+                            });
+                          },
 
-                          child: const Text(
-                            "See More >",
-                            style: TextStyle(
+                          child: Text(
+                            showAllHistory
+                                ? "Show Less"
+                                : "See More >",
+
+                            style:
+                                const TextStyle(
                               color: Colors.black,
                               fontWeight:
                                   FontWeight.bold,
@@ -417,36 +637,39 @@ class _MyQueuesScreenState
                         ),
                       ),
 
-                      // ================= BUTTON =================
+                      const SizedBox(height: 15),
+
+                      // ================= JOIN BUTTON =================
 
                       SizedBox(
                         width: double.infinity,
-                        height: 55,
+                        height: 58,
 
                         child: ElevatedButton(
-                          onPressed: () {},
+                          onPressed:
+                              joinNewQueue,
 
                           style:
                               ElevatedButton.styleFrom(
                             backgroundColor:
-                                Colors.grey.shade300,
+                                Colors.white,
+
+                            elevation: 4,
 
                             shape:
                                 RoundedRectangleBorder(
                               borderRadius:
                                   BorderRadius.circular(
-                                30,
+                                35,
                               ),
                             ),
-
-                            elevation: 0,
                           ),
 
                           child: const Text(
                             "Join New Queue",
                             style: TextStyle(
                               color: Colors.black,
-                              fontSize: 24,
+                              fontSize: 22,
                               fontWeight:
                                   FontWeight.bold,
                             ),
@@ -464,41 +687,77 @@ class _MyQueuesScreenState
         ],
       ),
 
-      // ================= BOTTOM NAVIGATION =================
+      // ================= NAVIGATION =================
 
-      bottomNavigationBar: BottomNavigationBar(
+      bottomNavigationBar:
+          BottomNavigationBar(
         currentIndex: currentIndex,
 
         type: BottomNavigationBarType.fixed,
 
-        selectedItemColor: Colors.black,
-        unselectedItemColor: Colors.black54,
+        selectedItemColor:
+            const Color(0xFF0047B3),
+
+        unselectedItemColor:
+            Colors.black54,
 
         onTap: (index) {
           setState(() {
             currentIndex = index;
           });
+
+          // HOME
+          if (index == 0) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    const DashboardScreen(),
+              ),
+            );
+          }
+
+          // NOTIFICATION
+          if (index == 2) {
+            Navigator.pushNamed(
+              context,
+              "/notifications",
+            );
+          }
+
+          // PROFILE
+          if (index == 3) {
+            ScaffoldMessenger.of(context)
+                .showSnackBar(
+              const SnackBar(
+                content: Text(
+                  "Profile Screen Coming Soon",
+                ),
+              ),
+            );
+          }
         },
 
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home),
-            label: "",
+            label: "Home",
           ),
 
           BottomNavigationBarItem(
             icon: Icon(Icons.sync),
-            label: "",
+            label: "Queue",
           ),
 
           BottomNavigationBarItem(
             icon: Icon(Icons.notifications),
-            label: "",
+            label: "Notification",
           ),
 
           BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            label: "",
+            icon:
+                Icon(Icons.person_outline),
+            label: "Profile",
           ),
         ],
       ),
@@ -507,39 +766,28 @@ class _MyQueuesScreenState
 
   // ================= INFO ROW =================
 
-  Widget infoRow(String title, String value) {
+  Widget infoRow(
+    String title,
+    String value,
+  ) {
     return Row(
       mainAxisAlignment:
-          MainAxisAlignment.center,
+          MainAxisAlignment.spaceBetween,
 
       children: [
-        SizedBox(
-          width: 130,
-
-          child: Text(
-            title,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-
-        const Text(
-          ":",
-          style: TextStyle(
+        Text(
+          title,
+          style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
           ),
         ),
 
-        const SizedBox(width: 18),
-
         Text(
           value,
           style: const TextStyle(
             fontSize: 18,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ],
@@ -550,40 +798,31 @@ class _MyQueuesScreenState
 
   Widget actionButton({
     required String text,
+    required Color color,
+    required VoidCallback onTap,
   }) {
-    return Container(
-      height: 42,
+    return GestureDetector(
+      onTap: onTap,
 
-      decoration: BoxDecoration(
-        color: Colors.grey.shade300,
+      child: Container(
+        height: 45,
 
-        borderRadius:
-            BorderRadius.circular(25),
-      ),
+        decoration: BoxDecoration(
+          color: color,
 
-      child: Center(
-        child: Text(
-          text,
-          style: const TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.w500,
+          borderRadius:
+              BorderRadius.circular(25),
+        ),
+
+        child: Center(
+          child: Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
-      ),
-    );
-  }
-
-  // ================= DOT INDICATOR =================
-
-  Widget dotIndicator() {
-    return Container(
-      width: 12,
-      height: 7,
-
-      decoration: BoxDecoration(
-        color: Colors.grey.shade300,
-        borderRadius:
-            BorderRadius.circular(20),
       ),
     );
   }

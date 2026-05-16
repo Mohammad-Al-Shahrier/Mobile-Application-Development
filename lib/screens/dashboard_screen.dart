@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:qeasy/screens/my_queues_screen.dart';
+
+import 'my_queues_screen.dart';
+import 'notification_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -223,7 +225,7 @@ class _DashboardScreenState
       body: SafeArea(
         child: Column(
           children: [
-            // ================= TOP SECTION =================
+            // TOP SECTION
 
             Container(
               width: double.infinity,
@@ -274,8 +276,8 @@ class _DashboardScreenState
                   // LOGO
                   Image.asset(
                     "assets/images/logo.png",
-                    width: 80,
-                    height: 80,
+                    width: 100,
+                    height: 100,
                   ),
 
                   const SizedBox(height: 10),
@@ -308,7 +310,6 @@ class _DashboardScreenState
                   // SEARCH BAR
                   Row(
                     children: [
-                      // FILTER BUTTON
                       Container(
                         width: 44,
                         height: 44,
@@ -329,7 +330,6 @@ class _DashboardScreenState
 
                       const SizedBox(width: 12),
 
-                      // SEARCH FIELD
                       Expanded(
                         child: Container(
                           height: 46,
@@ -375,14 +375,6 @@ class _DashboardScreenState
                                 Icons.search,
                                 color:
                                     Colors.white,
-                                size: 22,
-                              ),
-
-                              suffixIcon: Icon(
-                                Icons.search,
-                                color:
-                                    Colors.white,
-                                size: 22,
                               ),
 
                               hintText:
@@ -404,8 +396,7 @@ class _DashboardScreenState
               ),
             ),
 
-            // ================= BODY =================
-
+            // BODY
             Expanded(
               child: Container(
                 width: double.infinity,
@@ -446,9 +437,6 @@ class _DashboardScreenState
 
                       Expanded(
                         child: ListView.builder(
-                          physics:
-                              const BouncingScrollPhysics(),
-
                           itemCount:
                               displayedCenters
                                   .length,
@@ -474,19 +462,6 @@ class _DashboardScreenState
                                       BorderRadius.circular(
                                     20,
                                   ),
-
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors
-                                          .black12,
-                                      blurRadius: 6,
-                                      offset:
-                                          const Offset(
-                                        0,
-                                        3,
-                                      ),
-                                    ),
-                                  ],
                                 ),
 
                                 child: Row(
@@ -546,11 +521,6 @@ class _DashboardScreenState
                                                           FontWeight.bold,
                                                     ),
                                                   ),
-                                                ),
-
-                                                const SizedBox(
-                                                  width:
-                                                      8,
                                                 ),
 
                                                 Row(
@@ -676,8 +646,7 @@ class _DashboardScreenState
         ),
       ),
 
-      // ================= BOTTOM NAVIGATION =================
-
+      // BOTTOM NAVIGATION
       bottomNavigationBar:
           BottomNavigationBar(
         currentIndex: currentIndex,
@@ -687,12 +656,6 @@ class _DashboardScreenState
             currentIndex = index;
           });
 
-          // HOME
-          if (index == 0) {
-            return;
-          }
-
-          // MY QUEUE SCREEN
           if (index == 1) {
             Navigator.push(
               context,
@@ -703,36 +666,18 @@ class _DashboardScreenState
             );
           }
 
-          // NOTIFICATION
           if (index == 2) {
-            ScaffoldMessenger.of(context)
-                .showSnackBar(
-              const SnackBar(
-                content: Text(
-                  "Notification Screen",
-                ),
-              ),
-            );
-          }
-
-          // PROFILE
-          if (index == 3) {
-            ScaffoldMessenger.of(context)
-                .showSnackBar(
-              const SnackBar(
-                content: Text(
-                  "Profile Screen",
-                ),
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    const NotificationScreen(),
               ),
             );
           }
         },
 
         type: BottomNavigationBarType.fixed,
-
-        backgroundColor: Colors.white,
-
-        elevation: 10,
 
         selectedItemColor: Colors.blue,
         unselectedItemColor:
@@ -762,8 +707,6 @@ class _DashboardScreenState
       ),
     );
   }
-
-  // ================= ACTION BUTTON =================
 
   Widget actionButton({
     required String text,
@@ -795,8 +738,6 @@ class _DashboardScreenState
       ),
     );
   }
-
-  // ================= TOP ICON =================
 
   Widget circleIcon(IconData icon) {
     return Container(

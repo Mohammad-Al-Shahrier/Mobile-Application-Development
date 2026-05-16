@@ -6,6 +6,8 @@ import 'screens/registration_screen.dart';
 import 'screens/dashboard_screen.dart';
 
 import 'screens/my_queues_screen.dart';
+import 'screens/notification_screen.dart';
+
 /*import 'screens/my_profile_screen.dart';*/
 
 class AppRoutes {
@@ -16,6 +18,8 @@ class AppRoutes {
   static const String dashboard = "/dashboard";
 
   static const String myQueues = "/my-queues";
+  static const String notification = "/notification";
+
   /*static const String myProfile = "/my-profile";*/
 
   // Route Generator
@@ -46,6 +50,11 @@ class AppRoutes {
       case myQueues:
         return MaterialPageRoute(
           builder: (_) => const MyQueuesScreen(),
+        );
+
+      case notification:
+        return MaterialPageRoute(
+          builder: (_) => const NotificationScreen(),
         );
 
       /*case myProfile:
