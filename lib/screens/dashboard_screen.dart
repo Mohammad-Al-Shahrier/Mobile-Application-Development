@@ -12,147 +12,235 @@ class _DashboardScreenState
     extends State<DashboardScreen> {
   int currentIndex = 0;
 
+  final TextEditingController searchController =
+      TextEditingController();
+
+  bool showAllCenters = false;
+
   final List<Map<String, String>> centers = [
     {
       "image": "assets/images/hospital.jpg",
       "title": "United Hospital Limited",
-      "address": "Address uttara",
+      "address": "Uttara, Dhaka",
       "rating": "4.8",
+      "details":
+          "Modern hospital with emergency support.",
     },
     {
       "image": "assets/images/bank.jpg",
       "title": "City Bank PLC",
-      "address": "Address mirpur",
+      "address": "Mirpur, Dhaka",
       "rating": "4.9",
+      "details":
+          "Fast banking service with queue system.",
     },
     {
       "image": "assets/images/cafe.jpg",
       "title": "UrbanBite Cafe",
-      "address": "Address uttara",
-      "rating": "4.8",
+      "address": "Banani, Dhaka",
+      "rating": "4.7",
+      "details":
+          "Popular cafe with online booking.",
+    },
+    {
+      "image": "assets/images/hospital.jpg",
+      "title": "Square Hospital",
+      "address": "Panthapath, Dhaka",
+      "rating": "4.9",
+      "details":
+          "Premium healthcare and appointment system.",
+    },
+    {
+      "image": "assets/images/bank.jpg",
+      "title": "BRAC Bank",
+      "address": "Dhanmondi, Dhaka",
+      "rating": "4.6",
+      "details":
+          "Modern banking service and support.",
     },
   ];
 
+  late List<Map<String, String>> filteredCenters;
+
+  @override
+  void initState() {
+    super.initState();
+    filteredCenters = centers;
+  }
+
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
+  }
+
+  void searchCenters(String value) {
+    setState(() {
+      filteredCenters = centers.where((center) {
+        final title =
+            center["title"]!.toLowerCase();
+
+        final address =
+            center["address"]!.toLowerCase();
+
+        final query = value.toLowerCase();
+
+        return title.contains(query) ||
+            address.contains(query);
+      }).toList();
+    });
+  }
+
+  void bookNow(String centerName) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        content: Text(
+          "Booking request sent to $centerName",
+        ),
+      ),
+    );
+  }
+
+  void viewDetails(
+    Map<String, String> center,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(25),
+        ),
+      ),
+
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(20),
+
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+
+            children: [
+              ClipRRect(
+                borderRadius:
+                    BorderRadius.circular(16),
+
+                child: Image.asset(
+                  center["image"]!,
+                  width: double.infinity,
+                  height: 180,
+                  fit: BoxFit.cover,
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              Text(
+                center["title"]!,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              Row(
+                children: [
+                  const Icon(
+                    Icons.location_on,
+                    color: Colors.red,
+                    size: 20,
+                  ),
+
+                  const SizedBox(width: 5),
+
+                  Text(
+                    center["address"]!,
+                    style: const TextStyle(
+                      fontSize: 15,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 10),
+
+              Row(
+                children: [
+                  const Icon(
+                    Icons.star,
+                    color: Colors.orange,
+                    size: 20,
+                  ),
+
+                  const SizedBox(width: 5),
+
+                  Text(
+                    "Rating: ${center["rating"]}",
+                    style: const TextStyle(
+                      fontSize: 15,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 15),
+
+              Text(
+                center["details"]!,
+                style: const TextStyle(
+                  fontSize: 15,
+                  height: 1.5,
+                ),
+              ),
+
+              const SizedBox(height: 25),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final displayedCenters =
+        showAllCenters
+            ? filteredCenters
+            : filteredCenters.take(3).toList();
+
     return Scaffold(
       backgroundColor: Colors.white,
 
-      body: Column(
-        children: [
-          // TOP SECTION
-          Container(
-            width: double.infinity,
-            height: 250,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // ================= TOP SECTION =================
 
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF0047B3),
-                  Color(0xFFB65AD8),
-                ],
-              ),
-            ),
-
-            child: Stack(
-              children: [
-                Positioned(
-                  bottom: 0,
-                  child: Container(
-                    width:
-                        MediaQuery.of(context)
-                            .size
-                            .width,
-
-                    height: 70,
-
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.black87,
-                          Colors.transparent,
-                        ],
-                        begin: Alignment.bottomCenter,
-                        end: Alignment.topCenter,
-                      ),
-                    ),
-                  ),
-                ),
-
-                SafeArea(
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 10),
-
-                      // LOGO
-                      Center(
-                        child: Image.asset(
-                          "assets/images/logo.png",
-                          width: 90,
-                          height: 90,
-                        ),
-                      ),
-
-                      const SizedBox(height: 5),
-
-                      // TITLE
-                      const Text(
-                        "find",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 26,
-                          fontWeight: FontWeight.bold,
-                          height: 1,
-                        ),
-                      ),
-
-                      const Text(
-                        "Service Center",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          height: 1,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // RIGHT ICONS
-                Positioned(
-                  right: 10,
-                  top: 50,
-
-                  child: Column(
-                    children: [
-                      circleIcon(
-                        Icons.phone_in_talk,
-                      ),
-
-                      const SizedBox(height: 10),
-
-                      circleIcon(
-                        Icons.email,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // BODY
-          Expanded(
-            child: Container(
+            Container(
               width: double.infinity,
+              padding: const EdgeInsets.only(
+                left: 18,
+                right: 18,
+                top: 10,
+                bottom: 25,
+              ),
 
               decoration: const BoxDecoration(
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(28),
+                  bottomRight: Radius.circular(28),
+                ),
+
                 gradient: LinearGradient(
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                   colors: [
                     Color(0xFF0047B3),
                     Color(0xFFB65AD8),
@@ -160,354 +248,412 @@ class _DashboardScreenState
                 ),
               ),
 
-              child: SingleChildScrollView(
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 15,
+              child: Column(
+                children: [
+                  // TOP ICONS
+                  Row(
+                    mainAxisAlignment:
+                        MainAxisAlignment.end,
+
+                    children: [
+                      circleIcon(
+                        Icons.phone_disabled,
+                      ),
+
+                      const SizedBox(width: 10),
+
+                      circleIcon(Icons.email),
+                    ],
                   ),
+
+                  const SizedBox(height: 15),
+
+                  // LOGO
+                  Image.asset(
+                    "assets/images/logo.png",
+                    width: 80,
+                    height: 80,
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  // TITLE
+                  const Text(
+                    "find",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 34,
+                      fontWeight: FontWeight.bold,
+                      height: 1,
+                    ),
+                  ),
+
+                  const Text(
+                    "Service Center",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 34,
+                      fontWeight: FontWeight.bold,
+                      height: 1,
+                    ),
+                  ),
+
+                  const SizedBox(height: 28),
+
+                  // SEARCH BAR
+                  Row(
+                    children: [
+                      // FILTER BUTTON
+                      Container(
+                        width: 44,
+                        height: 44,
+
+                        decoration:
+                            const BoxDecoration(
+                          color: Color(0xFFFF3B30),
+                          shape: BoxShape.circle,
+                        ),
+
+                        child: const Icon(
+                          Icons.tune,
+                          color: Colors.white,
+                          size: 22,
+                        ),
+                      ),
+
+                      const SizedBox(width: 12),
+
+                      // SEARCH FIELD
+                      Expanded(
+                        child: Container(
+                          height: 46,
+
+                          decoration: BoxDecoration(
+                            borderRadius:
+                                BorderRadius.circular(
+                              30,
+                            ),
+
+                            border: Border.all(
+                              color: Colors.white,
+                              width: 1,
+                            ),
+                          ),
+
+                          child: TextField(
+                            controller:
+                                searchController,
+
+                            onChanged:
+                                searchCenters,
+
+                            style:
+                                const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                            ),
+
+                            decoration:
+                                const InputDecoration(
+                              border:
+                                  InputBorder.none,
+
+                              contentPadding:
+                                  EdgeInsets.symmetric(
+                                vertical: 12,
+                              ),
+
+                              prefixIcon: Icon(
+                                Icons.search,
+                                color: Colors.white,
+                                size: 22,
+                              ),
+
+                              suffixIcon: Icon(
+                                Icons.search,
+                                color: Colors.white,
+                                size: 22,
+                              ),
+
+                              hintText:
+                                  "Search by location or center name",
+
+                              hintStyle: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            // ================= BODY =================
+
+            Expanded(
+              child: Container(
+                width: double.infinity,
+
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      Color(0xFF0047B3),
+                      Color(0xFFB65AD8),
+                    ],
+                  ),
+                ),
+
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
 
                   child: Column(
                     crossAxisAlignment:
                         CrossAxisAlignment.start,
 
                     children: [
-                      // SEARCH
-                      Row(
-                        children: [
-                          Container(
-                            width: 28,
-                            height: 28,
-
-                            decoration:
-                                const BoxDecoration(
-                              color: Colors.red,
-                              shape: BoxShape.circle,
-                            ),
-
-                            child: const Icon(
-                              Icons.tune,
-                              color: Colors.white,
-                              size: 18,
-                            ),
-                          ),
-
-                          const SizedBox(width: 8),
-
-                          Expanded(
-                            child: Container(
-                              height: 40,
-
-                              decoration:
-                                  BoxDecoration(
-                                borderRadius:
-                                    BorderRadius.circular(
-                                        25),
-
-                                border: Border.all(
-                                  color:
-                                      Colors.white70,
-                                ),
-                              ),
-
-                              child: TextField(
-                                decoration:
-                                    InputDecoration(
-                                  border:
-                                      InputBorder.none,
-
-                                  contentPadding:
-                                      const EdgeInsets.symmetric(
-                                    horizontal: 15,
-                                    vertical: 10,
-                                  ),
-
-                                  hintText:
-                                      "Search by location center na.",
-
-                                  hintStyle:
-                                      const TextStyle(
-                                    color:
-                                        Colors.white70,
-                                    fontSize: 12,
-                                  ),
-
-                                  suffixIcon:
-                                      const Icon(
-                                    Icons.search,
-                                    color:
-                                        Colors.black,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 35),
-
-                      // TITLE
                       const Text(
                         "Nearby centers",
                         style: TextStyle(
                           color: Colors.black,
-                          fontSize: 26,
+                          fontSize: 28,
                           fontWeight:
                               FontWeight.bold,
                         ),
                       ),
 
-                      const SizedBox(height: 15),
+                      const SizedBox(height: 18),
 
-                      // CARD LIST
-                      ListView.builder(
-                        itemCount: centers.length,
-                        shrinkWrap: true,
-                        physics:
-                            const NeverScrollableScrollPhysics(),
+                      Expanded(
+                        child: ListView.builder(
+                          physics:
+                              const BouncingScrollPhysics(),
 
-                        itemBuilder: (
-                          context,
-                          index,
-                        ) {
-                          final item =
-                              centers[index];
+                          itemCount:
+                              displayedCenters.length,
 
-                          return Padding(
-                            padding:
-                                const EdgeInsets.only(
-                              bottom: 12,
-                            ),
+                          itemBuilder:
+                              (context, index) {
+                            final item =
+                                displayedCenters[
+                                    index];
 
-                            child: Container(
-                              height: 95,
-
-                              decoration:
-                                  BoxDecoration(
-                                color: Colors.white,
-                                borderRadius:
-                                    BorderRadius.circular(
-                                        15),
+                            return Padding(
+                              padding:
+                                  const EdgeInsets.only(
+                                bottom: 16,
                               ),
 
-                              child: Row(
-                                children: [
-                                  // IMAGE
-                                  ClipRRect(
-                                    borderRadius:
-                                        const BorderRadius.only(
-                                      topLeft:
-                                          Radius.circular(
-                                              15),
-                                      bottomLeft:
-                                          Radius.circular(
-                                              15),
-                                    ),
-
-                                    child:
-                                        Image.asset(
-                                      item["image"]!,
-                                      width: 100,
-                                      height: 95,
-                                      fit: BoxFit.cover,
-                                    ),
+                              child: Container(
+                                decoration:
+                                    BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius:
+                                      BorderRadius.circular(
+                                    20,
                                   ),
 
-                                  Expanded(
-                                    child: Padding(
-                                      padding:
-                                          const EdgeInsets.all(
-                                              8),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color:
+                                          Colors.black12,
+                                      blurRadius: 6,
+                                      offset:
+                                          const Offset(
+                                        0,
+                                        3,
+                                      ),
+                                    ),
+                                  ],
+                                ),
 
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment
-                                                .start,
+                                child: Row(
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius:
+                                          const BorderRadius.only(
+                                        topLeft:
+                                            Radius.circular(
+                                          20,
+                                        ),
+                                        bottomLeft:
+                                            Radius.circular(
+                                          20,
+                                        ),
+                                      ),
 
-                                        children: [
-                                          // TOP
-                                          Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment
-                                                    .spaceBetween,
+                                      child:
+                                          Image.asset(
+                                        item["image"]!,
+                                        width: 105,
+                                        height: 110,
+                                        fit:
+                                            BoxFit.cover,
+                                      ),
+                                    ),
 
-                                            children: [
-                                              Expanded(
-                                                child: Text(
-                                                  item["title"]!,
-                                                  maxLines:
-                                                      1,
+                                    Expanded(
+                                      child: Padding(
+                                        padding:
+                                            const EdgeInsets.all(
+                                          12,
+                                        ),
 
-                                                  overflow:
-                                                      TextOverflow
-                                                          .ellipsis,
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment
+                                                  .start,
 
-                                                  style:
-                                                      const TextStyle(
-                                                    fontSize:
-                                                        16,
-                                                    fontWeight:
-                                                        FontWeight.bold,
+                                          children: [
+                                            Row(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment
+                                                      .start,
+
+                                              children: [
+                                                Expanded(
+                                                  child:
+                                                      Text(
+                                                    item["title"]!,
+                                                    maxLines:
+                                                        1,
+                                                    overflow:
+                                                        TextOverflow
+                                                            .ellipsis,
+
+                                                    style:
+                                                        const TextStyle(
+                                                      fontSize:
+                                                          18,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
                                                   ),
                                                 ),
-                                              ),
 
-                                              Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                  horizontal:
-                                                      5,
-                                                  vertical:
-                                                      2,
+                                                const SizedBox(
+                                                  width:
+                                                      8,
                                                 ),
 
-                                                decoration:
-                                                    BoxDecoration(
-                                                  color: Colors
-                                                      .grey
-                                                      .shade200,
-
-                                                  borderRadius:
-                                                      BorderRadius.circular(
-                                                          8),
-                                                ),
-
-                                                child:
-                                                    Row(
+                                                Row(
                                                   children: [
                                                     const Icon(
                                                       Icons
                                                           .star,
                                                       color:
-                                                          Colors.red,
+                                                          Colors.orange,
                                                       size:
-                                                          12,
+                                                          18,
                                                     ),
 
                                                     Text(
                                                       item["rating"]!,
-                                                      style:
-                                                          const TextStyle(
-                                                        fontSize:
-                                                            10,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                      ),
                                                     ),
                                                   ],
                                                 ),
-                                              ),
-                                            ],
-                                          ),
-
-                                          const SizedBox(
-                                              height:
-                                                  4),
-
-                                          Text(
-                                            item["address"]!,
-                                            style:
-                                                const TextStyle(
-                                              color:
-                                                  Colors
-                                                      .grey,
-                                              fontSize:
-                                                  13,
+                                              ],
                                             ),
-                                          ),
 
-                                          const Spacer(),
+                                            const SizedBox(
+                                              height: 6,
+                                            ),
 
-                                          Row(
-                                            children: [
-                                              Expanded(
-                                                child:
-                                                    smallButton(
-                                                  "Book Now",
-                                                ),
+                                            Text(
+                                              item["address"]!,
+                                              style:
+                                                  const TextStyle(
+                                                color:
+                                                    Colors.grey,
+                                                fontSize:
+                                                    14,
                                               ),
+                                            ),
 
-                                              const SizedBox(
+                                            const SizedBox(
+                                              height: 16,
+                                            ),
+
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child:
+                                                      actionButton(
+                                                    text:
+                                                        "Book Now",
+
+                                                    onTap:
+                                                        () {
+                                                      bookNow(
+                                                        item["title"]!,
+                                                      );
+                                                    },
+                                                  ),
+                                                ),
+
+                                                const SizedBox(
                                                   width:
-                                                      8),
-
-                                              Expanded(
-                                                child:
-                                                    smallButton(
-                                                  "View Details",
+                                                      10,
                                                 ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
+
+                                                Expanded(
+                                                  child:
+                                                      actionButton(
+                                                    text:
+                                                        "View Details",
+
+                                                    onTap:
+                                                        () {
+                                                      viewDetails(
+                                                        item,
+                                                      );
+                                                    },
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                          );
-                        },
+                            );
+                          },
+                        ),
                       ),
-
-                      const SizedBox(height: 15),
-
-                      // INDICATOR
-                      Row(
-                        children: [
-                          Container(
-                            width: 20,
-                            height: 5,
-
-                            decoration:
-                                BoxDecoration(
-                              color: Colors.red,
-                              borderRadius:
-                                  BorderRadius.circular(
-                                      10),
-                            ),
-                          ),
-
-                          const SizedBox(width: 5),
-
-                          dot(),
-
-                          const SizedBox(width: 5),
-
-                          dot(),
-                        ],
-                      ),
-
-                      const SizedBox(height: 10),
 
                       Align(
                         alignment:
                             Alignment.centerRight,
 
-                        child: Row(
-                          mainAxisSize:
-                              MainAxisSize.min,
+                        child: TextButton(
+                          onPressed: () {
+                            setState(() {
+                              showAllCenters =
+                                  !showAllCenters;
+                            });
+                          },
 
-                          children: const [
-                            Text(
-                              "See More",
-                              style: TextStyle(
-                                color: Colors.black,
-                                fontWeight:
-                                    FontWeight.bold,
-                              ),
-                            ),
+                          child: Text(
+                            showAllCenters
+                                ? "Show Less"
+                                : "See More",
 
-                            SizedBox(width: 3),
-
-                            Icon(
-                              Icons.arrow_forward_ios,
-                              size: 14,
+                            style:
+                                const TextStyle(
                               color: Colors.black,
+                              fontWeight:
+                                  FontWeight.bold,
+                              fontSize: 16,
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     ],
@@ -515,11 +661,12 @@ class _DashboardScreenState
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
 
-      // BOTTOM NAVBAR
+      // ================= BOTTOM NAVIGATION =================
+
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: currentIndex,
 
@@ -528,6 +675,12 @@ class _DashboardScreenState
             currentIndex = index;
           });
         },
+
+        type: BottomNavigationBarType.fixed,
+
+        backgroundColor: Colors.white,
+
+        elevation: 10,
 
         selectedItemColor: Colors.black,
         unselectedItemColor: Colors.black54,
@@ -557,43 +710,45 @@ class _DashboardScreenState
     );
   }
 
-  Widget smallButton(String text) {
-    return Container(
-      height: 30,
+  // ================= ACTION BUTTON =================
 
-      decoration: BoxDecoration(
-        color: Colors.grey.shade300,
-        borderRadius: BorderRadius.circular(15),
-      ),
+  Widget actionButton({
+    required String text,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
 
-      child: Center(
-        child: Text(
-          text,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Colors.black,
+      child: Container(
+        height: 38,
+
+        decoration: BoxDecoration(
+          color: const Color(0xFF109DFF),
+
+          borderRadius:
+              BorderRadius.circular(22),
+        ),
+
+        child: Center(
+          child: Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget dot() {
-    return Container(
-      width: 8,
-      height: 8,
-
-      decoration: const BoxDecoration(
-        color: Colors.white70,
-        shape: BoxShape.circle,
-      ),
-    );
-  }
+  // ================= TOP ICON =================
 
   Widget circleIcon(IconData icon) {
     return Container(
-      width: 25,
-      height: 25,
+      width: 38,
+      height: 38,
 
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -602,7 +757,7 @@ class _DashboardScreenState
 
       child: Icon(
         icon,
-        size: 15,
+        size: 18,
         color: Colors.red,
       ),
     );
