@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
-import 'app_routes.dart';
+import 'routes/app_routes.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+
   runApp(const QEasyApp());
 }
 
@@ -12,25 +14,82 @@ class QEasyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
+      // ================= APP INFO =================
 
-      title: 'QEasy',
+      debugShowCheckedModeBanner: false,
+      title: "QEasy",
+
+      // ================= THEME =================
 
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        useMaterial3: true,
 
-        scaffoldBackgroundColor: Colors.white,
+        primaryColor: const Color(
+          0xFF0047B3,
+        ),
+
+        scaffoldBackgroundColor:
+            Colors.white,
+
+        fontFamily: "Roboto",
+
+        colorScheme: ColorScheme.fromSeed(
+          seedColor:
+              const Color(0xFF0047B3),
+        ),
 
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.white,
           elevation: 0,
           centerTitle: true,
+
+          iconTheme: IconThemeData(
+            color: Colors.black,
+          ),
+
+          titleTextStyle: TextStyle(
+            color: Colors.black,
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+
+        bottomNavigationBarTheme:
+            const BottomNavigationBarThemeData(
+          selectedItemColor:
+              Color(0xFF0047B3),
+
+          unselectedItemColor:
+              Colors.black54,
+
+          backgroundColor: Colors.white,
+
+          elevation: 8,
+
+          type:
+              BottomNavigationBarType.fixed,
+        ),
+
+        snackBarTheme: SnackBarThemeData(
+          behavior:
+              SnackBarBehavior.floating,
+
+          backgroundColor:
+              Colors.black87,
+
+          shape: RoundedRectangleBorder(
+            borderRadius:
+                BorderRadius.circular(14),
+          ),
         ),
       ),
 
-      // ROUTES
-      initialRoute: AppRoutes.login,
-      onGenerateRoute: AppRoutes.generateRoute,
+      // ================= ROUTES =================
+
+      initialRoute: AppRoutes.splash,
+
+      onGenerateRoute:
+          AppRoutes.generateRoute,
     );
   }
 }

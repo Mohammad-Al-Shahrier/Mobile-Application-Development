@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'my_profile_screen.dart';
 import 'my_queues_screen.dart';
 import 'notification_screen.dart';
 
@@ -61,6 +62,22 @@ class _DashboardScreenState
       "details":
           "Modern banking service and support.",
     },
+    {
+      "image": "assets/images/cafe.jpg",
+      "title": "Cafe Milano",
+      "address": "Gulshan, Dhaka",
+      "rating": "4.5",
+      "details":
+          "Luxury cafe with reservation system.",
+    },
+    {
+      "image": "assets/images/hospital.jpg",
+      "title": "Popular Diagnostic",
+      "address": "Shyamoli, Dhaka",
+      "rating": "4.7",
+      "details":
+          "Diagnostic and healthcare service.",
+    },
   ];
 
   late List<Map<String, String>>
@@ -78,45 +95,57 @@ class _DashboardScreenState
     super.dispose();
   }
 
+  // ================= SEARCH =================
+
   void searchCenters(String value) {
     setState(() {
       filteredCenters = centers.where((center) {
-        final title =
-            center["title"]!.toLowerCase();
+        final query =
+            value.toLowerCase();
 
-        final address =
-            center["address"]!.toLowerCase();
-
-        final query = value.toLowerCase();
-
-        return title.contains(query) ||
-            address.contains(query);
+        return center["title"]!
+                .toLowerCase()
+                .contains(query) ||
+            center["address"]!
+                .toLowerCase()
+                .contains(query);
       }).toList();
     });
   }
 
+  // ================= BOOK NOW =================
+
   void bookNow(String centerName) {
-    ScaffoldMessenger.of(context).showSnackBar(
+    ScaffoldMessenger.of(context)
+        .showSnackBar(
       SnackBar(
-        behavior: SnackBarBehavior.floating,
+        backgroundColor: Colors.green,
+
+        behavior:
+            SnackBarBehavior.floating,
+
         content: Text(
-          "Booking request sent to $centerName",
+          "Queue booked successfully at $centerName",
         ),
       ),
     );
   }
+
+  // ================= DETAILS =================
 
   void viewDetails(
     Map<String, String> center,
   ) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+
       isScrollControlled: true,
+
+      backgroundColor: Colors.white,
 
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
-          top: Radius.circular(25),
+          top: Radius.circular(30),
         ),
       ),
 
@@ -124,92 +153,174 @@ class _DashboardScreenState
         return Padding(
           padding: const EdgeInsets.all(20),
 
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
 
-            children: [
-              ClipRRect(
-                borderRadius:
-                    BorderRadius.circular(16),
+              children: [
+                ClipRRect(
+                  borderRadius:
+                      BorderRadius.circular(
+                    20,
+                  ),
 
-                child: Image.asset(
-                  center["image"]!,
+                  child: Image.asset(
+                    center["image"]!,
+
+                    width: double.infinity,
+                    height: 220,
+
+                    fit: BoxFit.cover,
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                Text(
+                  center["title"]!,
+
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight:
+                        FontWeight.bold,
+                  ),
+                ),
+
+                const SizedBox(height: 14),
+
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.location_on,
+                      color: Colors.red,
+                    ),
+
+                    const SizedBox(width: 6),
+
+                    Expanded(
+                      child: Text(
+                        center["address"]!,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 10),
+
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.star,
+                      color: Colors.orange,
+                    ),
+
+                    const SizedBox(width: 6),
+
+                    Text(
+                      center["rating"]!,
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 18),
+
+                Text(
+                  center["details"]!,
+
+                  style: const TextStyle(
+                    fontSize: 15,
+                    height: 1.5,
+                  ),
+                ),
+
+                const SizedBox(height: 25),
+
+                SizedBox(
                   width: double.infinity,
-                  height: 180,
-                  fit: BoxFit.cover,
-                ),
-              ),
+                  height: 50,
 
-              const SizedBox(height: 16),
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
 
-              Text(
-                center["title"]!,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+                      bookNow(
+                        center["title"]!,
+                      );
+                    },
 
-              const SizedBox(height: 12),
+                    style:
+                        ElevatedButton.styleFrom(
+                      backgroundColor:
+                          const Color(
+                        0xFF109DFF,
+                      ),
 
-              Row(
-                children: [
-                  const Icon(
-                    Icons.location_on,
-                    color: Colors.red,
-                    size: 20,
-                  ),
+                      shape:
+                          RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(
+                          16,
+                        ),
+                      ),
+                    ),
 
-                  const SizedBox(width: 5),
+                    child: const Text(
+                      "Book Queue",
 
-                  Text(
-                    center["address"]!,
-                    style: const TextStyle(
-                      fontSize: 15,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight:
+                            FontWeight.bold,
+                      ),
                     ),
                   ),
-                ],
-              ),
-
-              const SizedBox(height: 10),
-
-              Row(
-                children: [
-                  const Icon(
-                    Icons.star,
-                    color: Colors.orange,
-                    size: 20,
-                  ),
-
-                  const SizedBox(width: 5),
-
-                  Text(
-                    "Rating: ${center["rating"]}",
-                    style: const TextStyle(
-                      fontSize: 15,
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 15),
-
-              Text(
-                center["details"]!,
-                style: const TextStyle(
-                  fontSize: 15,
-                  height: 1.5,
                 ),
-              ),
-
-              const SizedBox(height: 25),
-            ],
+              ],
+            ),
           ),
         );
       },
     );
+  }
+
+  // ================= NAVIGATION =================
+
+  void onNavbarTapped(int index) {
+    if (index == currentIndex) return;
+
+    switch (index) {
+      case 1:
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) =>
+                const MyQueuesScreen(),
+          ),
+        );
+        break;
+
+      case 2:
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) =>
+                const NotificationScreen(),
+          ),
+        );
+        break;
+
+      case 3:
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) =>
+                const MyProfileScreen(),
+          ),
+        );
+        break;
+    }
   }
 
   @override
@@ -217,469 +328,23 @@ class _DashboardScreenState
     final displayedCenters =
         showAllCenters
             ? filteredCenters
-            : filteredCenters.take(3).toList();
+            : filteredCenters.take(4).toList();
 
     return Scaffold(
       backgroundColor: Colors.white,
 
-      body: SafeArea(
-        child: Column(
-          children: [
-            // TOP SECTION
-
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.only(
-                left: 18,
-                right: 18,
-                top: 10,
-                bottom: 25,
-              ),
-
-              decoration: const BoxDecoration(
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(28),
-                  bottomRight:
-                      Radius.circular(28),
-                ),
-
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF0047B3),
-                    Color(0xFFB65AD8),
-                  ],
-                ),
-              ),
-
-              child: Column(
-                children: [
-                  // TOP ICONS
-                  Row(
-                    mainAxisAlignment:
-                        MainAxisAlignment.end,
-
-                    children: [
-                      circleIcon(
-                        Icons.phone_disabled,
-                      ),
-
-                      const SizedBox(width: 10),
-
-                      circleIcon(Icons.email),
-                    ],
-                  ),
-
-                  const SizedBox(height: 15),
-
-                  // LOGO
-                  Image.asset(
-                    "assets/images/logo.png",
-                    width: 100,
-                    height: 100,
-                  ),
-
-                  const SizedBox(height: 10),
-
-                  // TITLE
-                  const Text(
-                    "find",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 34,
-                      fontWeight:
-                          FontWeight.bold,
-                      height: 1,
-                    ),
-                  ),
-
-                  const Text(
-                    "Service Center",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 34,
-                      fontWeight:
-                          FontWeight.bold,
-                      height: 1,
-                    ),
-                  ),
-
-                  const SizedBox(height: 28),
-
-                  // SEARCH BAR
-                  Row(
-                    children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-
-                        decoration:
-                            const BoxDecoration(
-                          color:
-                              Color(0xFFFF3B30),
-                          shape: BoxShape.circle,
-                        ),
-
-                        child: const Icon(
-                          Icons.tune,
-                          color: Colors.white,
-                          size: 22,
-                        ),
-                      ),
-
-                      const SizedBox(width: 12),
-
-                      Expanded(
-                        child: Container(
-                          height: 46,
-
-                          decoration:
-                              BoxDecoration(
-                            borderRadius:
-                                BorderRadius.circular(
-                              30,
-                            ),
-
-                            border: Border.all(
-                              color:
-                                  Colors.white,
-                              width: 1,
-                            ),
-                          ),
-
-                          child: TextField(
-                            controller:
-                                searchController,
-
-                            onChanged:
-                                searchCenters,
-
-                            style:
-                                const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                            ),
-
-                            decoration:
-                                const InputDecoration(
-                              border:
-                                  InputBorder.none,
-
-                              contentPadding:
-                                  EdgeInsets.symmetric(
-                                vertical: 12,
-                              ),
-
-                              prefixIcon: Icon(
-                                Icons.search,
-                                color:
-                                    Colors.white,
-                              ),
-
-                              hintText:
-                                  "Search by location or center name",
-
-                              hintStyle:
-                                  TextStyle(
-                                color:
-                                    Colors.white70,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            // BODY
-            Expanded(
-              child: Container(
-                width: double.infinity,
-
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin:
-                        Alignment.centerLeft,
-                    end:
-                        Alignment.centerRight,
-                    colors: [
-                      Color(0xFF0047B3),
-                      Color(0xFFB65AD8),
-                    ],
-                  ),
-                ),
-
-                child: Padding(
-                  padding:
-                      const EdgeInsets.all(14),
-
-                  child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
-
-                    children: [
-                      const Text(
-                        "Nearby centers",
-                        style: TextStyle(
-                          color: Colors.black,
-                          fontSize: 28,
-                          fontWeight:
-                              FontWeight.bold,
-                        ),
-                      ),
-
-                      const SizedBox(height: 18),
-
-                      Expanded(
-                        child: ListView.builder(
-                          itemCount:
-                              displayedCenters
-                                  .length,
-
-                          itemBuilder:
-                              (context, index) {
-                            final item =
-                                displayedCenters[
-                                    index];
-
-                            return Padding(
-                              padding:
-                                  const EdgeInsets.only(
-                                bottom: 16,
-                              ),
-
-                              child: Container(
-                                decoration:
-                                    BoxDecoration(
-                                  color:
-                                      Colors.white,
-                                  borderRadius:
-                                      BorderRadius.circular(
-                                    20,
-                                  ),
-                                ),
-
-                                child: Row(
-                                  children: [
-                                    ClipRRect(
-                                      borderRadius:
-                                          const BorderRadius.only(
-                                        topLeft:
-                                            Radius.circular(
-                                          20,
-                                        ),
-                                        bottomLeft:
-                                            Radius.circular(
-                                          20,
-                                        ),
-                                      ),
-
-                                      child:
-                                          Image.asset(
-                                        item["image"]!,
-                                        width: 105,
-                                        height: 110,
-                                        fit:
-                                            BoxFit.cover,
-                                      ),
-                                    ),
-
-                                    Expanded(
-                                      child: Padding(
-                                        padding:
-                                            const EdgeInsets.all(
-                                          12,
-                                        ),
-
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment
-                                                  .start,
-
-                                          children: [
-                                            Row(
-                                              children: [
-                                                Expanded(
-                                                  child:
-                                                      Text(
-                                                    item["title"]!,
-                                                    maxLines:
-                                                        1,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-
-                                                    style:
-                                                        const TextStyle(
-                                                      fontSize:
-                                                          18,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ),
-
-                                                Row(
-                                                  children: [
-                                                    const Icon(
-                                                      Icons.star,
-                                                      color:
-                                                          Colors.orange,
-                                                      size:
-                                                          18,
-                                                    ),
-
-                                                    Text(
-                                                      item["rating"]!,
-                                                    ),
-                                                  ],
-                                                ),
-                                              ],
-                                            ),
-
-                                            const SizedBox(
-                                              height: 6,
-                                            ),
-
-                                            Text(
-                                              item["address"]!,
-                                              style:
-                                                  const TextStyle(
-                                                color:
-                                                    Colors.grey,
-                                                fontSize:
-                                                    14,
-                                              ),
-                                            ),
-
-                                            const SizedBox(
-                                              height: 16,
-                                            ),
-
-                                            Row(
-                                              children: [
-                                                Expanded(
-                                                  child:
-                                                      actionButton(
-                                                    text:
-                                                        "Book Now",
-
-                                                    onTap:
-                                                        () {
-                                                      bookNow(
-                                                        item["title"]!,
-                                                      );
-                                                    },
-                                                  ),
-                                                ),
-
-                                                const SizedBox(
-                                                  width:
-                                                      10,
-                                                ),
-
-                                                Expanded(
-                                                  child:
-                                                      actionButton(
-                                                    text:
-                                                        "View Details",
-
-                                                    onTap:
-                                                        () {
-                                                      viewDetails(
-                                                        item,
-                                                      );
-                                                    },
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-
-                      Align(
-                        alignment:
-                            Alignment.centerRight,
-
-                        child: TextButton(
-                          onPressed: () {
-                            setState(() {
-                              showAllCenters =
-                                  !showAllCenters;
-                            });
-                          },
-
-                          child: Text(
-                            showAllCenters
-                                ? "Show Less"
-                                : "See More",
-
-                            style:
-                                const TextStyle(
-                              color: Colors.black,
-                              fontWeight:
-                                  FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-
-      // BOTTOM NAVIGATION
       bottomNavigationBar:
           BottomNavigationBar(
         currentIndex: currentIndex,
 
-        onTap: (index) {
-          setState(() {
-            currentIndex = index;
-          });
+        onTap: onNavbarTapped,
 
-          if (index == 1) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) =>
-                    const MyQueuesScreen(),
-              ),
-            );
-          }
+        type:
+            BottomNavigationBarType.fixed,
 
-          if (index == 2) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) =>
-                    const NotificationScreen(),
-              ),
-            );
-          }
-        },
+        selectedItemColor:
+            const Color(0xFF109DFF),
 
-        type: BottomNavigationBarType.fixed,
-
-        selectedItemColor: Colors.blue,
         unselectedItemColor:
             Colors.black54,
 
@@ -695,18 +360,483 @@ class _DashboardScreenState
           ),
 
           BottomNavigationBarItem(
-            icon: Icon(Icons.notifications),
+            icon:
+                Icon(Icons.notifications),
             label: "Notification",
           ),
 
           BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
+            icon:
+                Icon(Icons.person_outline),
             label: "Profile",
           ),
         ],
       ),
+
+      body: SafeArea(
+        child: SingleChildScrollView(
+          physics:
+              const BouncingScrollPhysics(),
+
+          child: Column(
+            children: [
+              // ================= HEADER =================
+
+              Container(
+                width: double.infinity,
+
+                padding:
+                    const EdgeInsets.only(
+                  left: 18,
+                  right: 18,
+                  top: 10,
+                  bottom: 30,
+                ),
+
+                decoration:
+                    const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin:
+                        Alignment.topLeft,
+                    end:
+                        Alignment.bottomRight,
+
+                    colors: [
+                      Color(0xFF0047B3),
+                      Color(0xFFB65AD8),
+                    ],
+                  ),
+
+                  borderRadius:
+                      BorderRadius.only(
+                    bottomLeft:
+                        Radius.circular(30),
+                    bottomRight:
+                        Radius.circular(30),
+                  ),
+                ),
+
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment:
+                          MainAxisAlignment
+                              .end,
+
+                      children: [
+                        circleIcon(
+                          Icons.phone,
+                        ),
+
+                        const SizedBox(
+                          width: 10,
+                        ),
+
+                        circleIcon(
+                          Icons.email,
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(
+                      height: 20,
+                    ),
+
+                    Image.asset(
+                      "assets/images/logo.png",
+
+                      width: 100,
+                      height: 100,
+
+                      errorBuilder:
+                          (
+                            context,
+                            error,
+                            stackTrace,
+                          ) {
+                        return const Icon(
+                          Icons.image,
+                          color:
+                              Colors.white,
+                          size: 80,
+                        );
+                      },
+                    ),
+
+                    const SizedBox(
+                      height: 10,
+                    ),
+
+                    const Text(
+                      "Find",
+
+                      style: TextStyle(
+                        color:
+                            Colors.white,
+                        fontSize: 34,
+                        fontWeight:
+                            FontWeight.bold,
+                      ),
+                    ),
+
+                    const Text(
+                      "Service Center",
+
+                      style: TextStyle(
+                        color:
+                            Colors.white,
+                        fontSize: 34,
+                        fontWeight:
+                            FontWeight.bold,
+                      ),
+                    ),
+
+                    const SizedBox(
+                      height: 25,
+                    ),
+
+                    // SEARCH BAR
+
+                    Container(
+                      height: 52,
+
+                      decoration:
+                          BoxDecoration(
+                        color: Colors.white
+                            .withOpacity(
+                          0.15,
+                        ),
+
+                        borderRadius:
+                            BorderRadius.circular(
+                          30,
+                        ),
+
+                        border: Border.all(
+                          color:
+                              Colors.white,
+                        ),
+                      ),
+
+                      child: TextField(
+                        controller:
+                            searchController,
+
+                        onChanged:
+                            searchCenters,
+
+                        style:
+                            const TextStyle(
+                          color:
+                              Colors.white,
+                        ),
+
+                        decoration:
+                            const InputDecoration(
+                          border:
+                              InputBorder.none,
+
+                          prefixIcon: Icon(
+                            Icons.search,
+                            color:
+                                Colors.white,
+                          ),
+
+                          hintText:
+                              "Search service center",
+
+                          hintStyle:
+                              TextStyle(
+                            color:
+                                Colors.white70,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // ================= BODY =================
+
+              Container(
+                width: double.infinity,
+
+                padding:
+                    const EdgeInsets.all(16),
+
+                decoration:
+                    const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin:
+                        Alignment.topLeft,
+                    end:
+                        Alignment.bottomRight,
+
+                    colors: [
+                      Color(0xFF0047B3),
+                      Color(0xFFB65AD8),
+                    ],
+                  ),
+                ),
+
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+
+                  children: [
+                    const Text(
+                      "Nearby Centers",
+
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight:
+                            FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    if (displayedCenters
+                        .isEmpty)
+                      const Center(
+                        child: Padding(
+                          padding:
+                              EdgeInsets.only(
+                            top: 40,
+                          ),
+
+                          child: Text(
+                            "No centers found",
+
+                            style: TextStyle(
+                              color:
+                                  Colors.white,
+                              fontSize: 18,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    ...displayedCenters.map(
+                      (item) {
+                        return Padding(
+                          padding:
+                              const EdgeInsets.only(
+                            bottom: 16,
+                          ),
+
+                          child: Container(
+                            decoration:
+                                BoxDecoration(
+                              color:
+                                  Colors.white,
+
+                              borderRadius:
+                                  BorderRadius.circular(
+                                20,
+                              ),
+
+                              boxShadow: const [
+                                BoxShadow(
+                                  color:
+                                      Colors.black12,
+                                  blurRadius: 6,
+                                ),
+                              ],
+                            ),
+
+                            child: Row(
+                              children: [
+                                ClipRRect(
+                                  borderRadius:
+                                      const BorderRadius.only(
+                                    topLeft:
+                                        Radius.circular(
+                                      20,
+                                    ),
+                                    bottomLeft:
+                                        Radius.circular(
+                                      20,
+                                    ),
+                                  ),
+
+                                  child:
+                                      Image.asset(
+                                    item["image"]!,
+
+                                    width: 105,
+                                    height: 120,
+
+                                    fit:
+                                        BoxFit.cover,
+                                  ),
+                                ),
+
+                                Expanded(
+                                  child: Padding(
+                                    padding:
+                                        const EdgeInsets.all(
+                                      12,
+                                    ),
+
+                                    child:
+                                        Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment
+                                              .start,
+
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child:
+                                                  Text(
+                                                item["title"]!,
+
+                                                maxLines:
+                                                    1,
+
+                                                overflow:
+                                                    TextOverflow.ellipsis,
+
+                                                style:
+                                                    const TextStyle(
+                                                  fontSize:
+                                                      18,
+                                                  fontWeight:
+                                                      FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+
+                                            const Icon(
+                                              Icons.star,
+                                              color:
+                                                  Colors.orange,
+                                              size:
+                                                  18,
+                                            ),
+
+                                            const SizedBox(
+                                              width:
+                                                  4,
+                                            ),
+
+                                            Text(
+                                              item["rating"]!,
+                                            ),
+                                          ],
+                                        ),
+
+                                        const SizedBox(
+                                          height:
+                                              6,
+                                        ),
+
+                                        Text(
+                                          item["address"]!,
+
+                                          style:
+                                              const TextStyle(
+                                            color:
+                                                Colors.grey,
+                                          ),
+                                        ),
+
+                                        const SizedBox(
+                                          height:
+                                              15,
+                                        ),
+
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child:
+                                                  actionButton(
+                                                text:
+                                                    "Book Now",
+
+                                                onTap:
+                                                    () {
+                                                  bookNow(
+                                                    item["title"]!,
+                                                  );
+                                                },
+                                              ),
+                                            ),
+
+                                            const SizedBox(
+                                              width:
+                                                  10,
+                                            ),
+
+                                            Expanded(
+                                              child:
+                                                  actionButton(
+                                                text:
+                                                    "View Details",
+
+                                                onTap:
+                                                    () {
+                                                  viewDetails(
+                                                    item,
+                                                  );
+                                                },
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+
+                    Align(
+                      alignment:
+                          Alignment.centerRight,
+
+                      child: TextButton(
+                        onPressed: () {
+                          setState(() {
+                            showAllCenters =
+                                !showAllCenters;
+                          });
+                        },
+
+                        child: Text(
+                          showAllCenters
+                              ? "Show Less"
+                              : "See More",
+
+                          style:
+                              const TextStyle(
+                            color:
+                                Colors.white,
+                            fontWeight:
+                                FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
+
+  // ================= BUTTON =================
 
   Widget actionButton({
     required String text,
@@ -719,25 +849,33 @@ class _DashboardScreenState
         height: 38,
 
         decoration: BoxDecoration(
-          color: const Color(0xFF109DFF),
+          color: const Color(
+            0xFF109DFF,
+          ),
 
           borderRadius:
-              BorderRadius.circular(22),
+              BorderRadius.circular(
+            22,
+          ),
         ),
 
         child: Center(
           child: Text(
             text,
+
             style: const TextStyle(
               color: Colors.white,
               fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontWeight:
+                  FontWeight.w600,
             ),
           ),
         ),
       ),
     );
   }
+
+  // ================= TOP ICON =================
 
   Widget circleIcon(IconData icon) {
     return Container(
