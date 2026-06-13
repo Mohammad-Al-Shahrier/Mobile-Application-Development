@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "24170906633",
+    "project_id": "qeasy-7a577",
+    "storage_bucket": "qeasy-7a577.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:24170906633:android:c8571cf007df4fb11be4d8",
+        "android_client_info": {
+          "package_name": "com.example.qeasy"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC30U3PuaDDmjquO_Pj0zmxs3C_USbseGw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

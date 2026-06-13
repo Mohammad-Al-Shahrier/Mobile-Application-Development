@@ -1,12 +1,12 @@
 name: qeasy
-description: "QEasy Queue Management Mobile Application"
+description: QEasy Queue Management Mobile Application
 
 publish_to: 'none'
 
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.11.4
+  sdk: ">=3.6.0 <4.0.0"
 
 dependencies:
   flutter:
@@ -14,7 +14,13 @@ dependencies:
 
   cupertino_icons: ^1.0.8
 
-  # IMAGE PICKER
+  # Firebase
+  firebase_core: ^4.0.0
+  cloud_firestore: ^6.0.0
+  firebase_auth: ^6.0.0
+  firebase_storage: ^13.0.0
+
+  # Image Picker
   image_picker: ^1.1.2
 
 dev_dependencies:
