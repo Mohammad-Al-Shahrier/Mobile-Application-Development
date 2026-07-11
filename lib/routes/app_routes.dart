@@ -9,18 +9,22 @@ import '../screens/notification_screen.dart';
 import '../screens/my_profile_screen.dart';
 import '../screens/auth_gate.dart';
 import '../screens/admin_dashboad.dart';
+import '../screens/provider_dashboard_screen.dart';
+import '../screens/manage_providers_screen.dart';
 
 class AppRoutes {
   // ── Route name constants ──────────────────────
-  static const String splash         = '/';
-  static const String authGate       = '/auth_gate';
-  static const String login          = '/login';
-  static const String registration   = '/registration';
-  static const String dashboard      = '/dashboard';
-  static const String adminDashboard = '/admin_dashboard';
-  static const String myQueues       = '/my-queues';
-  static const String notification   = '/notification';
-  static const String myProfile      = '/my-profile';
+  static const String splash            = '/';
+  static const String authGate          = '/auth_gate';
+  static const String login             = '/login';
+  static const String registration      = '/registration';
+  static const String dashboard         = '/dashboard';
+  static const String adminDashboard    = '/admin_dashboard';
+  static const String providerDashboard = '/provider_dashboard';
+  static const String manageProviders   = '/manage_providers';
+  static const String myQueues          = '/my-queues';
+  static const String notification      = '/notification';
+  static const String myProfile         = '/my-profile';
 
   // ── Route generator ───────────────────────────
   static Route<dynamic> generateRoute(RouteSettings settings) {
@@ -37,6 +41,10 @@ class AppRoutes {
         return _route(const DashboardScreen());
       case adminDashboard:
         return _route(const AdminDashboardScreen());
+      case providerDashboard:
+        return _route(const ProviderDashboardScreen());
+      case manageProviders:
+        return _route(const ManageProvidersScreen());
       case myQueues:
         return _route(const MyQueuesScreen());
       case notification:

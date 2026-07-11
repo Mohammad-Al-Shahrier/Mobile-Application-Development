@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../controllers/auth_controller.dart';
+import '../utils/validators.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -54,6 +55,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (role == 'admin') {
       Navigator.pushReplacementNamed(context, '/admin_dashboard');
+    } else if (role == 'service_provider') {
+      Navigator.pushReplacementNamed(context, '/provider_dashboard');
     } else {
       Navigator.pushReplacementNamed(context, '/dashboard');
     }
@@ -122,11 +125,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   hint:     'Enter your email',
                   icon:     Icons.email_outlined,
                   keyboard: TextInputType.emailAddress,
-                  validator: (v) {
-                    if (v == null || v.isEmpty) return 'Enter your email';
-                    if (!v.contains('@')) return 'Enter a valid email';
-                    return null;
-                  },
+                  validator: Validators.email,
                 ),
                 const SizedBox(height: 20),
 
@@ -146,11 +145,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       color: Colors.grey, size: 22,
                     ),
                   ),
-                  validator: (v) {
-                    if (v == null || v.isEmpty) return 'Enter your password';
-                    if (v.length < 6) return 'Password is too short';
-                    return null;
-                  },
+                  validator: Validators.password,
                 ),
                 const SizedBox(height: 8),
 

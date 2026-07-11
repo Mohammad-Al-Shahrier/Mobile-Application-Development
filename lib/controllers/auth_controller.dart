@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
@@ -78,6 +79,129 @@ class AuthController {
     } catch (e) {
       debugPrint('❌ Unexpected error during register: $e');
       return 'Registration failed. Please try again.';
+    }
+  }
+
+  // ══════════════════════════════════════════════
+  //  REGISTER — SERVICE CENTER (self-service business signup)
+  //  Creates the Auth account, a brand-new `service_centers` doc,
+  //  its matching `queues` doc, and a `users` doc with
+  //  role: 'service_provider' already linked to that center — all
+  //  in one go, straight from the public registration screen.
+  //  Returns null on success, error message on fail.
+  // ══════════════════════════════════════════════
+  static Future<String?> registerServiceCenter({
+    required String fullName,
+    required String email,
+    required String password,
+    required String phone,
+    required String address,
+    required String dob,
+    required String gender,
+    required String centerName,
+    required String category,
+    required String description,
+    int avgServiceMinutes = 5,
+  }) async {
+    User? createdAuthUser;
+    try {
+      debugPrint('🏢 AuthController.registerServiceCenter() → $email');
+
+      final credential = await _auth.createUserWithEmailAndPassword(
+        email: email.trim(),
+        password: password.trim(),
+      );
+      createdAuthUser = credential.user;
+      final uid = credential.user!.uid;
+      debugPrint('✅ Auth account created → uid: $uid');
+
+      await credential.user!.updateDisplayName(fullName.trim());
+
+      // Write the service center, its queue, and the owner's user doc as
+      // ONE atomic batch — either all three land, or none do. This is what
+      // used to be 3 separate `.set()` calls: if the 2nd one got denied by
+      // Firestore rules, the center doc from step 1 was already committed
+      // (or not) with nothing to show for it and no clear error — a batch
+      // fixes that class of "half registered" bug entirely.
+      final batch = _db.batch();
+
+      final centerRef = _db.collection('service_centers').doc();
+      batch.set(centerRef, {
+        'name': centerName.trim(),
+        'category': category,
+        'address': address.trim(),
+        'rating': 5.0,
+        'image': 'assets/images/hospital.jpg',
+        'description': description.trim(),
+        'isActive': true,
+        'avgServiceMinutes': avgServiceMinutes,
+        'isPaused': false,
+        'assignedProviderUid': uid,
+        'assignedProviderName': fullName.trim(),
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      final queueRef = _db.collection('queues').doc(centerRef.id);
+      batch.set(queueRef, {
+        'serviceCenterId': centerRef.id,
+        'serviceCenterName': centerName.trim(),
+        // Mirrors service_centers.assignedProviderUid so security rules
+        // can validate this write against request.resource.data directly
+        // instead of needing a get() on a doc created in the same batch.
+        'assignedProviderUid': uid,
+        'lastTokenNumber': 0,
+        'isPaused': false,
+        'currentServingTokenId': null,
+        'currentServingTokenNumber': null,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      final userRef = _db.collection('users').doc(uid);
+      batch.set(userRef, {
+        'uid': uid,
+        'fullName': fullName.trim(),
+        'email': email.trim(),
+        'phone': phone.trim(),
+        'address': address.trim(),
+        'dob': dob.trim(),
+        'gender': gender,
+        'role': 'service_provider',
+        'serviceCenterId': centerRef.id,
+        'serviceCenterName': centerName.trim(),
+        'activeQueueId': null,
+        'activeTokenNumber': null,
+        'totalQueuesJoined': 0,
+        'notificationsEnabled': true,
+        'createdAt': FieldValue.serverTimestamp(),
+        'lastLoginAt': null,
+      });
+
+      await batch.commit();
+
+      debugPrint('✅ Service center "${centerName.trim()}" created → ${centerRef.id}');
+      return null; // null = success
+
+    } on FirebaseAuthException catch (e) {
+      debugPrint('❌ FirebaseAuthException [${e.code}]: ${e.message}');
+      return _authErrorMessage(e.code);
+    } on FirebaseException catch (e) {
+      // Almost always a Firestore security-rules rejection — surface the
+      // real reason instead of a generic message, and clean up the auth
+      // account we just created so the person isn't left with a login
+      // that has no working center/profile behind it.
+      debugPrint('❌ Firestore error during registerServiceCenter [${e.code}]: ${e.message}');
+      await createdAuthUser?.delete().catchError((_) {});
+      if (e.code == 'permission-denied') {
+        return 'Registration was blocked by server rules (permission-denied). '
+            'Ask your admin to update Firestore security rules to allow '
+            'service center self-registration.';
+      }
+      return 'Could not save your service center (${e.code}). Please try again.';
+    } catch (e) {
+      debugPrint('❌ Unexpected error during registerServiceCenter: $e');
+      await createdAuthUser?.delete().catchError((_) {});
+      return 'Could not register your service center. Please try again.';
     }
   }
 
@@ -184,6 +308,101 @@ class AuthController {
     } catch (e) {
       debugPrint('❌ getCurrentUserData failed: $e');
       return null;
+    }
+  }
+
+  // ══════════════════════════════════════════════
+  //  ADMIN: CREATE / REMOVE SERVICE PROVIDER
+  //  Uses a throwaway secondary Firebase App so creating the new
+  //  provider account never signs the admin out of their own session.
+  //  Returns null on success, error message on fail.
+  // ══════════════════════════════════════════════
+  static Future<String?> registerServiceProvider({
+    required String fullName,
+    required String email,
+    required String password,
+    required String phone,
+    required String serviceCenterId,
+    required String serviceCenterName,
+  }) async {
+    FirebaseApp? tempApp;
+    try {
+      tempApp = await Firebase.initializeApp(
+        name: 'ProviderCreation_${DateTime.now().millisecondsSinceEpoch}',
+        options: Firebase.app().options,
+      );
+      final tempAuth = FirebaseAuth.instanceFor(app: tempApp);
+
+      final credential = await tempAuth.createUserWithEmailAndPassword(
+        email: email.trim(),
+        password: password.trim(),
+      );
+      final uid = credential.user!.uid;
+      await credential.user!.updateDisplayName(fullName.trim());
+
+      final batch = _db.batch();
+
+      batch.set(_db.collection('users').doc(uid), {
+        'uid': uid,
+        'fullName': fullName.trim(),
+        'email': email.trim(),
+        'phone': phone.trim(),
+        'address': '',
+        'dob': '',
+        'gender': 'Other',
+        'role': 'service_provider',
+        'serviceCenterId': serviceCenterId,
+        'serviceCenterName': serviceCenterName,
+        'activeQueueId': null,
+        'activeTokenNumber': null,
+        'totalQueuesJoined': 0,
+        'notificationsEnabled': true,
+        'createdAt': FieldValue.serverTimestamp(),
+        'lastLoginAt': null,
+      });
+
+      batch.set(
+        _db.collection('service_centers').doc(serviceCenterId),
+        {'assignedProviderUid': uid, 'assignedProviderName': fullName.trim()},
+        SetOptions(merge: true),
+      );
+
+      await batch.commit();
+
+      await tempAuth.signOut();
+      debugPrint('✅ Service provider account created → uid: $uid');
+      return null;
+    } on FirebaseAuthException catch (e) {
+      debugPrint('❌ registerServiceProvider [${e.code}]: ${e.message}');
+      return _authErrorMessage(e.code);
+    } on FirebaseException catch (e) {
+      debugPrint('❌ Firestore error in registerServiceProvider [${e.code}]: ${e.message}');
+      return e.code == 'permission-denied'
+          ? 'Blocked by server rules (permission-denied). Check Firestore rules for admin writes to users/service_centers.'
+          : 'Could not save the provider account (${e.code}).';
+    } catch (e) {
+      debugPrint('❌ registerServiceProvider failed: $e');
+      return 'Could not create the service provider account.';
+    } finally {
+      if (tempApp != null) {
+        await tempApp.delete();
+      }
+    }
+  }
+
+  /// Unassigns whichever provider is running [serviceCenterId]'s queue.
+  /// Leaves their login account intact but clears the center's assignment
+  /// (so the provider dashboard will show "not assigned" for them).
+  static Future<String?> unassignServiceProvider(String serviceCenterId) async {
+    try {
+      await _db.collection('service_centers').doc(serviceCenterId).set({
+        'assignedProviderUid': null,
+        'assignedProviderName': null,
+      }, SetOptions(merge: true));
+      return null;
+    } catch (e) {
+      debugPrint('❌ unassignServiceProvider failed: $e');
+      return 'Could not unassign the provider.';
     }
   }
 

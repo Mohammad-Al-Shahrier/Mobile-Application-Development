@@ -31,7 +31,14 @@ class QueueToken {
   final String status;
 
   final Timestamp createdAt;
+
+  /// Set the moment a provider calls this ticket in ("Waiting" → "Serving").
+  final Timestamp? calledAt;
   final Timestamp? servedAt;
+
+  /// True for tickets a provider added manually for a walk-in customer
+  /// who doesn't have (or isn't using) the app — no `userId` behind these.
+  final bool isWalkIn;
 
   const QueueToken({
     required this.id,
@@ -44,7 +51,9 @@ class QueueToken {
     required this.tokenNumber,
     required this.status,
     required this.createdAt,
+    this.calledAt,
     this.servedAt,
+    this.isWalkIn = false,
   });
 
   factory QueueToken.fromDoc(DocumentSnapshot doc) {
@@ -62,7 +71,9 @@ class QueueToken {
       createdAt: d['createdAt'] is Timestamp
           ? d['createdAt'] as Timestamp
           : Timestamp.now(),
+      calledAt: d['calledAt'] as Timestamp?,
       servedAt: d['servedAt'] as Timestamp?,
+      isWalkIn: (d['isWalkIn'] as bool?) ?? false,
     );
   }
 
@@ -76,7 +87,9 @@ class QueueToken {
         'tokenNumber': tokenNumber,
         'status': status,
         'createdAt': createdAt,
+        'calledAt': calledAt,
         'servedAt': servedAt,
+        'isWalkIn': isWalkIn,
       };
 
   bool get isWaiting => status == 'Waiting';
@@ -104,6 +117,15 @@ class ServiceCenter {
   /// wait time for people in the queue.
   final int avgServiceMinutes;
 
+  /// True when the assigned service provider has paused the live queue
+  /// (e.g. on a break, closed for the day). New bookings are blocked.
+  final bool isPaused;
+
+  /// The service provider (role == 'service_provider') currently assigned
+  /// to run this center's queue, if any.
+  final String? assignedProviderUid;
+  final String? assignedProviderName;
+
   const ServiceCenter({
     required this.id,
     required this.name,
@@ -114,6 +136,9 @@ class ServiceCenter {
     required this.description,
     this.isActive = true,
     this.avgServiceMinutes = 5,
+    this.isPaused = false,
+    this.assignedProviderUid,
+    this.assignedProviderName,
   });
 
   factory ServiceCenter.fromDoc(DocumentSnapshot doc) {
@@ -128,6 +153,9 @@ class ServiceCenter {
       description: (d['description'] ?? '').toString(),
       isActive: (d['isActive'] as bool?) ?? true,
       avgServiceMinutes: (d['avgServiceMinutes'] as int?) ?? 5,
+      isPaused: (d['isPaused'] as bool?) ?? false,
+      assignedProviderUid: d['assignedProviderUid'] as String?,
+      assignedProviderName: d['assignedProviderName'] as String?,
     );
   }
 
@@ -140,5 +168,10 @@ class ServiceCenter {
         'description': description,
         'isActive': isActive,
         'avgServiceMinutes': avgServiceMinutes,
+        'isPaused': isPaused,
+        'assignedProviderUid': assignedProviderUid,
+        'assignedProviderName': assignedProviderName,
       };
+
+  bool get hasProvider => assignedProviderUid != null;
 }

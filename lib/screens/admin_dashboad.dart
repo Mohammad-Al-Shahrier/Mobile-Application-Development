@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../routes/app_routes.dart';
+import '../controllers/queue_controller.dart';
+import 'manage_providers_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -167,10 +169,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   // ── Actions ──
+  /// Manual override — normally the assigned service provider drives ticket
+  /// status from their own dashboard. `servedAt` is only ever stamped when a
+  /// ticket is actually marked Served, never when it's merely called in.
   Future<void> _updateTokenStatus(String id, String status) async {
     try {
       final update = <String, dynamic>{'status': status};
-      if (status == 'Serving' || status == 'Served') {
+      if (status == 'Served') {
         update['servedAt'] = FieldValue.serverTimestamp();
       }
       await _db.collection('tokens').doc(id).update(update);
@@ -180,22 +185,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
   }
 
+  /// Delegates to the same real queue engine the provider dashboard uses,
+  /// so admin overrides stay in sync with `queues/{id}.currentServingTokenId`.
   Future<void> _callNextToken(String queueId) async {
-    try {
-      final waiting = _tokens.where((t) =>
-          t['queueId'] == queueId && t['status'] == 'Waiting').toList();
-      if (waiting.isEmpty) { _snack('No waiting tokens', ok: false); return; }
-      waiting.sort((a, b) {
-        final ta = ((a.data() as Map)['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
-        final tb = ((b.data() as Map)['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
-        return ta.compareTo(tb);
-      });
-      await _db.collection('tokens').doc(waiting.first.id)
-          .update({'status': 'Serving', 'servedAt': FieldValue.serverTimestamp()});
-      _snack('Next token called!', ok: true);
-    } catch (e) {
-      _snack('Error: $e', ok: false);
-    }
+    final error = await QueueController.callNextToken(queueId);
+    _snack(error ?? 'Next token called!', ok: error == null);
   }
 
   Future<void> _deleteUser(String uid, String name) async {
@@ -309,6 +303,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             const Text('Live', style: TextStyle(
                 color: _grn, fontSize: 10, fontWeight: FontWeight.w600)),
           ]),
+          const SizedBox(width: 14),
+          GestureDetector(
+            onTap: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const ManageProvidersScreen())),
+            child: const Icon(Icons.groups_outlined, color: Colors.white38, size: 20),
+          ),
           const SizedBox(width: 14),
           GestureDetector(
             onTap: _logout,

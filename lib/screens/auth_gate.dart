@@ -40,9 +40,12 @@ class AuthGate extends StatelessWidget {
               );
             }
             final role = roleSnap.data ?? 'customer';
-            return _Redirect(
-              route: role == 'admin' ? '/admin_dashboard' : '/dashboard',
-            );
+            final route = switch (role) {
+              'admin' => '/admin_dashboard',
+              'service_provider' => '/provider_dashboard',
+              _ => '/dashboard',
+            };
+            return _Redirect(route: route);
           },
         );
       },
