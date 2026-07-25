@@ -164,6 +164,40 @@ class QueueController {
   }
 
   // ══════════════════════════════════════════════
+  //  AUTHORIZATION GUARD
+  //  Every provider-facing action below calls this first so a service
+  //  center can only ever manage ITS OWN queue — this used to be
+  //  enforced only by which centerId the UI happened to pass in, so
+  //  nothing stopped a signed-in provider (or a modified client) from
+  //  calling these methods with a *different* center's id. Admins are
+  //  exempt since the admin dashboard reuses these same methods for
+  //  its own oversight actions.
+  // ══════════════════════════════════════════════
+  static Future<void> _assertOwnsCenter(String serviceCenterId) async {
+    if (serviceCenterId.isEmpty) throw 'Service center not found.';
+    final uid = AuthController.currentUid;
+    if (uid == null) throw 'You must be logged in.';
+
+    final role = await AuthController.getUserRole(uid);
+    if (role == 'admin') return; // admins may manage any center
+
+    final centerDoc = await _db.collection('service_centers').doc(serviceCenterId).get();
+    if (!centerDoc.exists) throw 'Service center not found.';
+    final assignedUid = centerDoc.data()?['assignedProviderUid'] as String?;
+    if (assignedUid != uid) {
+      throw "You're not the provider assigned to this service center.";
+    }
+  }
+
+  /// Same guard, but for actions that only have a tokenId (cancel/recall) —
+  /// looks up the token's own center first, then checks ownership of it.
+  static Future<String> _assertOwnsTokensCenter(Map<String, dynamic> tokenData) async {
+    final centerId = (tokenData['queueId'] ?? tokenData['serviceCenterId'] ?? '').toString();
+    await _assertOwnsCenter(centerId);
+    return centerId;
+  }
+
+  // ══════════════════════════════════════════════
   //  PROVIDER ACTIONS
   //  These drive the *real* live queue: only one ticket
   //  is ever "Serving" per service center at a time.
@@ -175,17 +209,31 @@ class QueueController {
   static Future<String?> callNextToken(String serviceCenterId) async {
     final queueRef = _db.collection('queues').doc(serviceCenterId);
     try {
+      await _assertOwnsCenter(serviceCenterId);
+
+      // No `.orderBy()` here on purpose — combined with two `.where()`
+      // equality filters, Firestore would require a manual composite
+      // index that most Firebase projects never create, so this call
+      // would silently fail forever with "Now Serving" stuck empty.
+      // Every other query in this file avoids the same trap by sorting
+      // client-side instead; this one now matches.
       final waitingSnap = await _db
           .collection('tokens')
           .where('queueId', isEqualTo: serviceCenterId)
           .where('status', isEqualTo: 'Waiting')
-          .orderBy('createdAt')
-          .limit(2)
           .get();
 
       if (waitingSnap.docs.isEmpty) return 'No customers are waiting.';
 
-      final nextDoc = waitingSnap.docs.first;
+      final sortedDocs = waitingSnap.docs.toList()
+        ..sort((a, b) {
+          final at = a.data()['createdAt'];
+          final bt = b.data()['createdAt'];
+          if (at is! Timestamp || bt is! Timestamp) return 0;
+          return at.compareTo(bt);
+        });
+
+      final nextDoc = sortedDocs.first;
       final nextData = nextDoc.data();
       final nextTokenRef = _db.collection('tokens').doc(nextDoc.id);
 
@@ -226,8 +274,8 @@ class QueueController {
       );
 
       // Give the person right after a heads-up.
-      if (waitingSnap.docs.length > 1) {
-        final upcoming = waitingSnap.docs[1].data();
+      if (sortedDocs.length > 1) {
+        final upcoming = sortedDocs[1].data();
         await _addNotification(
           userId: (upcoming['userId'] ?? '').toString(),
           title: "You're Next in Line",
@@ -259,6 +307,8 @@ class QueueController {
   }) async {
     final queueRef = _db.collection('queues').doc(serviceCenterId);
     try {
+      await _assertOwnsCenter(serviceCenterId);
+
       String? resolvedUserId;
       String? resolvedTokenNumber;
 
@@ -318,6 +368,120 @@ class QueueController {
     }
   }
 
+  /// Admin-only manual override: force-sets a token's status from the
+  /// admin dashboard. Unlike a raw Firestore `.update()`, this keeps
+  /// `queues/{id}.currentServingTokenId` and the customer's own
+  /// `activeQueueId` in sync — otherwise a token forced to "Served"
+  /// while it was the one being served would leave the queue doc
+  /// permanently stuck, blocking the provider's "Call Next" forever.
+  /// Prefer the provider-facing methods above for day-to-day use; this
+  /// exists purely as an admin audit/override tool.
+  static Future<String?> adminSetTokenStatus(String tokenId, String newStatus) async {
+    const validStatuses = ['Waiting', 'Serving', 'Served', 'Skipped', 'Cancelled'];
+    if (!validStatuses.contains(newStatus)) return 'Unknown status.';
+
+    final uid = AuthController.currentUid;
+    if (uid == null) return 'You must be logged in.';
+    final role = await AuthController.getUserRole(uid);
+    if (role != 'admin') return 'Only admins can override a ticket status directly.';
+
+    final tokenRef = _db.collection('tokens').doc(tokenId);
+    String? customerId;
+    String? tokenNumber;
+
+    try {
+      await _db.runTransaction((tx) async {
+        final tokenSnap = await tx.get(tokenRef);
+        if (!tokenSnap.exists) throw 'Ticket not found.';
+        final data = tokenSnap.data() as Map<String, dynamic>;
+        final oldStatus = (data['status'] ?? 'Waiting').toString();
+        final centerId = (data['queueId'] ?? data['serviceCenterId'] ?? '').toString();
+        customerId = (data['userId'] ?? '').toString();
+        tokenNumber = (data['tokenNumber'] ?? '').toString();
+
+        final queueRef = centerId.isEmpty ? null : _db.collection('queues').doc(centerId);
+        DocumentSnapshot<Map<String, dynamic>>? queueSnap;
+        if (queueRef != null) queueSnap = await tx.get(queueRef);
+
+        final tokenUpdate = <String, dynamic>{'status': newStatus};
+        if (newStatus == 'Served') tokenUpdate['servedAt'] = FieldValue.serverTimestamp();
+        if (newStatus == 'Serving') tokenUpdate['calledAt'] = FieldValue.serverTimestamp();
+        tx.update(tokenRef, tokenUpdate);
+
+        // Keep the queue doc's "currently serving" pointer honest.
+        if (queueRef != null && queueSnap != null && queueSnap.exists) {
+          final qData = queueSnap.data() ?? {};
+          final currentServingId = qData['currentServingTokenId'] as String?;
+
+          if (newStatus == 'Serving') {
+            if (currentServingId != null && currentServingId != tokenId) {
+              throw 'Another ticket is already being served at this center. Resolve it first.';
+            }
+            tx.set(
+              queueRef,
+              {
+                'currentServingTokenId': tokenId,
+                'currentServingTokenNumber': tokenNumber,
+                'updatedAt': FieldValue.serverTimestamp(),
+              },
+              SetOptions(merge: true),
+            );
+          } else if (oldStatus == 'Serving' && currentServingId == tokenId) {
+            tx.set(
+              queueRef,
+              {
+                'currentServingTokenId': null,
+                'currentServingTokenNumber': null,
+                'updatedAt': FieldValue.serverTimestamp(),
+              },
+              SetOptions(merge: true),
+            );
+          }
+        }
+
+        // Keep the customer's own "active ticket" pointer in sync.
+        final uid = customerId;
+        if (uid != null && uid.isNotEmpty) {
+          final userRef = _db.collection('users').doc(uid);
+          if (newStatus == 'Waiting' || newStatus == 'Serving') {
+            tx.update(userRef, {'activeQueueId': tokenId, 'activeTokenNumber': tokenNumber});
+          } else {
+            tx.update(userRef, {'activeQueueId': null, 'activeTokenNumber': null});
+          }
+        }
+      });
+
+      final uid = customerId;
+      if (uid != null && uid.isNotEmpty) {
+        const titles = {
+          'Waiting': 'Ticket Updated',
+          'Serving': "It's Your Turn!",
+          'Served': 'Service Completed',
+          'Skipped': 'Ticket Skipped',
+          'Cancelled': 'Ticket Cancelled',
+        };
+        const types = {
+          'Waiting': 'booked',
+          'Serving': 'serving',
+          'Served': 'served',
+          'Skipped': 'skipped',
+          'Cancelled': 'cancelled',
+        };
+        await _addNotification(
+          userId: uid,
+          title: titles[newStatus] ?? 'Ticket Updated',
+          subtitle: 'Token $tokenNumber status changed to $newStatus by an administrator.',
+          type: types[newStatus] ?? 'info',
+        );
+      }
+
+      return null;
+    } catch (e) {
+      debugPrint('❌ adminSetTokenStatus failed: $e');
+      return e is String ? e : 'Could not update the ticket.';
+    }
+  }
+
   /// Pauses/resumes a service center's live queue. While paused, customers
   /// cannot book new tokens (joinQueue is blocked).
   static Future<String?> setQueuePaused(
@@ -325,6 +489,8 @@ class QueueController {
     bool paused,
   ) async {
     try {
+      await _assertOwnsCenter(serviceCenterId);
+
       await _db.collection('queues').doc(serviceCenterId).set(
         {'isPaused': paused, 'updatedAt': FieldValue.serverTimestamp()},
         SetOptions(merge: true),
@@ -336,7 +502,7 @@ class QueueController {
       return null;
     } catch (e) {
       debugPrint('❌ setQueuePaused failed: $e');
-      return 'Could not update the queue status.';
+      return e is String ? e : 'Could not update the queue status.';
     }
   }
 
@@ -364,6 +530,8 @@ class QueueController {
     final queueRef = _db.collection('queues').doc(serviceCenterId);
     final tokenRef = _db.collection('tokens').doc();
     try {
+      await _assertOwnsCenter(serviceCenterId);
+
       String tokenNumber = 'T-001';
       await _db.runTransaction((tx) async {
         final queueSnap = await tx.get(queueRef);
@@ -401,7 +569,7 @@ class QueueController {
       return null;
     } catch (e) {
       debugPrint('❌ addWalkInToken failed: $e');
-      return 'Could not add the walk-in customer.';
+      return e is String ? e : 'Could not add the walk-in customer.';
     }
   }
 
@@ -415,6 +583,8 @@ class QueueController {
       if (!tokenDoc.exists) return 'Ticket not found.';
 
       final data = tokenDoc.data()!;
+      await _assertOwnsTokensCenter(data);
+
       if (data['status'] != 'Waiting' && data['status'] != 'Serving') {
         return 'This ticket is already finished.';
       }
@@ -449,7 +619,7 @@ class QueueController {
       return null;
     } catch (e) {
       debugPrint('❌ cancelTokenAsProvider failed: $e');
-      return 'Could not cancel the ticket.';
+      return e is String ? e : 'Could not cancel the ticket.';
     }
   }
 
@@ -461,6 +631,8 @@ class QueueController {
       final tokenDoc = await tokenRef.get();
       if (!tokenDoc.exists) return 'Ticket not found.';
       final data = tokenDoc.data()!;
+      await _assertOwnsTokensCenter(data);
+
       if (data['status'] != 'Skipped') {
         return 'Only skipped tickets can be recalled.';
       }
@@ -487,7 +659,7 @@ class QueueController {
       return null;
     } catch (e) {
       debugPrint('❌ recallSkippedToken failed: $e');
-      return 'Could not recall the ticket.';
+      return e is String ? e : 'Could not recall the ticket.';
     }
   }
 
@@ -540,6 +712,8 @@ class QueueController {
     required int avgServiceMinutes,
   }) async {
     try {
+      await _assertOwnsCenter(centerId);
+
       await _db.collection('service_centers').doc(centerId).update({
         'name': name.trim(),
         'category': category,
@@ -555,7 +729,7 @@ class QueueController {
       return null;
     } catch (e) {
       debugPrint('❌ updateCenterDetails failed: $e');
-      return 'Could not update your center details.';
+      return e is String ? e : 'Could not update your center details.';
     }
   }
 

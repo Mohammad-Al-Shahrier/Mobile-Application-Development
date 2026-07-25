@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../controllers/auth_controller.dart';
+import '../controllers/queue_controller.dart';
 
 /// ============================================================
 /// MANAGE PROVIDERS — QEasy (Admin)
@@ -39,14 +40,8 @@ class _ManageProvidersScreenState extends State<ManageProvidersScreen> {
   }
 
   Future<void> _togglePause(String centerId, bool paused) async {
-    await _db.collection('queues').doc(centerId).set(
-      {'isPaused': paused, 'updatedAt': FieldValue.serverTimestamp()},
-      SetOptions(merge: true),
-    );
-    await _db.collection('service_centers').doc(centerId).set(
-      {'isPaused': paused},
-      SetOptions(merge: true),
-    );
+    final error = await QueueController.setQueuePaused(centerId, paused);
+    if (error != null) _snack(error, ok: false);
   }
 
   Future<void> _unassign(String centerId, String name) async {

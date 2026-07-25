@@ -24,18 +24,24 @@ class DashboardController {
             snap.docs.map((d) => ServiceCenter.fromDoc(d)).toList());
   }
 
-  /// Client-side filter used by the search bar.
+  /// Client-side filter used by the search bar + category chips.
   static List<ServiceCenter> filterCenters(
     List<ServiceCenter> centers,
-    String query,
-  ) {
-    if (query.trim().isEmpty) return centers;
+    String query, {
+    String? category,
+  }) {
+    Iterable<ServiceCenter> result = centers;
+    if (category != null && category.isNotEmpty && category != 'All') {
+      result = result.where((c) => c.category == category);
+    }
     final q = query.trim().toLowerCase();
-    return centers.where((c) {
-      return c.name.toLowerCase().contains(q) ||
+    if (q.isNotEmpty) {
+      result = result.where((c) =>
+          c.name.toLowerCase().contains(q) ||
           c.address.toLowerCase().contains(q) ||
-          c.category.toLowerCase().contains(q);
-    }).toList();
+          c.category.toLowerCase().contains(q));
+    }
+    return result.toList();
   }
 
   /// Populates Firestore with the original demo centers the very first

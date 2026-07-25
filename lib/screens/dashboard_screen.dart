@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../controllers/dashboard_controller.dart';
 import '../controllers/queue_controller.dart';
 import '../models/queue_model.dart';
+import '../utils/constants.dart';
 import 'my_profile_screen.dart';
 import 'my_queues_screen.dart';
 import 'notification_screen.dart';
@@ -21,6 +24,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   bool showAllCenters = false;
   String searchQuery = '';
+  String selectedCategory = 'All';
+
+  /// Debounces search-box typing so filtering/rebuilds happen once the
+  /// person pauses instead of on every single keystroke.
+  Timer? _searchDebounce;
 
   /// Center id currently being booked (shows a spinner on its button).
   String? bookingCenterId;
@@ -35,9 +43,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     searchController.dispose();
     super.dispose();
   }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      setState(() {
+        searchQuery = value;
+        showAllCenters = false; // start collapsed for a fresh search
+      });
+    });
+  }
+
+  void _clearSearch() {
+    _searchDebounce?.cancel();
+    searchController.clear();
+    setState(() {
+      searchQuery = '';
+      showAllCenters = false;
+    });
+  }
+
+  void _selectCategory(String category) {
+    setState(() {
+      selectedCategory = category;
+      showAllCenters = false;
+    });
+  }
+
 
   // ================= BOOK NOW =================
 
@@ -211,8 +248,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             }
 
             final allCenters = snapshot.data ?? [];
-            final filteredCenters =
-                DashboardController.filterCenters(allCenters, searchQuery);
+            final filteredCenters = DashboardController.filterCenters(
+              allCenters,
+              searchQuery,
+              category: selectedCategory,
+            );
             final displayedCenters =
                 showAllCenters ? filteredCenters : filteredCenters.take(4).toList();
 
@@ -273,14 +313,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                           child: TextField(
                             controller: searchController,
-                            onChanged: (v) => setState(() => searchQuery = v),
+                            onChanged: _onSearchChanged,
                             style: const TextStyle(color: Colors.white),
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               border: InputBorder.none,
-                              prefixIcon: Icon(Icons.search, color: Colors.white),
+                              prefixIcon: const Icon(Icons.search, color: Colors.white),
                               hintText: "Search service center",
-                              hintStyle: TextStyle(color: Colors.white70),
+                              hintStyle: const TextStyle(color: Colors.white70),
+                              suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                                valueListenable: searchController,
+                                builder: (context, value, _) {
+                                  if (value.text.isEmpty) return const SizedBox.shrink();
+                                  return IconButton(
+                                    icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                                    onPressed: _clearSearch,
+                                  );
+                                },
+                              ),
                             ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          height: 34,
+                          child: ListView(
+                            scrollDirection: Axis.horizontal,
+                            physics: const BouncingScrollPhysics(),
+                            children: [
+                              _categoryChip('All'),
+                              ...ServiceCenterCategories.all.map(_categoryChip),
+                            ],
                           ),
                         ),
                       ],
@@ -307,12 +369,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                         const SizedBox(height: 20),
                         if (displayedCenters.isEmpty)
-                          const Center(
+                          Center(
                             child: Padding(
-                              padding: EdgeInsets.only(top: 40),
-                              child: Text(
-                                "No centers found",
-                                style: TextStyle(color: Colors.white, fontSize: 18),
+                              padding: const EdgeInsets.only(top: 40),
+                              child: Column(
+                                children: [
+                                  const Icon(Icons.search_off, color: Colors.white70, size: 40),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    searchQuery.isNotEmpty
+                                        ? 'No centers match "$searchQuery"'
+                                        : selectedCategory != 'All'
+                                            ? 'No $selectedCategory centers yet'
+                                            : 'No centers found',
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                                  ),
+                                  if (searchQuery.isNotEmpty || selectedCategory != 'All') ...[
+                                    const SizedBox(height: 10),
+                                    TextButton(
+                                      onPressed: () {
+                                        _clearSearch();
+                                        setState(() => selectedCategory = 'All');
+                                      },
+                                      child: const Text('Clear filters',
+                                          style: TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              decoration: TextDecoration.underline)),
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
                           ),
@@ -420,6 +507,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // ================= BUTTON =================
+
+  Widget _categoryChip(String label) {
+    final selected = selectedCategory == label;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: GestureDetector(
+        onTap: () => _selectCategory(label),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? Colors.white : Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white70),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? const Color(0xFF0047B3) : Colors.white,
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget actionButton({required String text, required VoidCallback? onTap}) {
     return GestureDetector(

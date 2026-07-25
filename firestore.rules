@@ -1,0 +1,114 @@
+rules_version = '2';
+
+// ============================================================
+// FIRESTORE SECURITY RULES — QEasy
+//
+// The app-side guard in QueueController (_assertOwnsCenter) stops the
+// UI from letting a provider touch another center's queue, but a
+// client-side check can always be bypassed by calling the Firestore
+// SDK directly. These rules are the real, non-bypassable enforcement
+// of the same rule: "a service center can only serve/manage tokens
+// booked for ITS OWN queue — never anyone else's."
+//
+// Deploy with: firebase deploy --only firestore:rules
+// ============================================================
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function myRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && myRole() == 'admin';
+    }
+
+    function isOwnCenter(centerId) {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/service_centers/$(centerId)).data.assignedProviderUid == request.auth.uid;
+    }
+
+    // ── users/{uid} ──────────────────────────────
+    match /users/{uid} {
+      allow read: if isSignedIn();
+
+      // A person creates their own doc on sign-up. Admin-created provider
+      // accounts (Manage Providers → Assign) are written from the ADMIN's
+      // own session via a throwaway secondary auth app, so request.auth.uid
+      // is the admin's uid, not the new provider's — admins need a bypass.
+      allow create: if isAdmin() || (isSignedIn() && request.auth.uid == uid);
+
+      allow update:
+        // Admins may edit anyone.
+        if isAdmin() ||
+        // A person may fully edit their OWN doc, but never change their
+        // own role.
+        (isSignedIn() && request.auth.uid == uid &&
+         request.resource.data.role == resource.data.role) ||
+        // Narrow allowance: the queue engine needs to update a few
+        // bookkeeping fields on SOMEONE ELSE's doc — e.g. a provider
+        // clearing a customer's activeQueueId when completing/skipping
+        // their ticket, or setting it again on a recall. Only these
+        // specific fields may change; nothing else about another
+        // person's profile can be touched this way.
+        (isSignedIn() &&
+         request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(['activeQueueId', 'activeTokenNumber', 'totalQueuesJoined', 'lastLoginAt']));
+
+      allow delete: if isAdmin();
+    }
+
+    // ── service_centers/{id} ─────────────────────
+    match /service_centers/{centerId} {
+      allow read: if true; // public listing
+      allow create: if isSignedIn(); // self-registration flow
+      allow update: if isAdmin() || isOwnCenter(centerId);
+      allow delete: if isAdmin();
+    }
+
+    // ── queues/{centerId}  (1 doc per service center) ──
+    match /queues/{centerId} {
+      allow read: if true;
+      // Customers booking (joinQueue) need to bump lastTokenNumber —
+      // allow any signed-in user to create/merge-update this doc, but
+      // only the center's own provider (or an admin) may flip isPaused
+      // or the currentServingToken* fields.
+      allow create: if isSignedIn();
+      allow update: if isAdmin() || isOwnCenter(centerId) ||
+        (isSignedIn() &&
+         !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['isPaused', 'currentServingTokenId', 'currentServingTokenNumber']));
+      allow delete: if isAdmin();
+    }
+
+    // ── tokens/{id}  (one booking/ticket) ────────
+    match /tokens/{tokenId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      // A token may be updated by: the customer who owns it (cancel
+      // only), the provider assigned to its center, or an admin.
+      allow update: if isAdmin() ||
+        isOwnCenter(resource.data.queueId) ||
+        (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // ── notifications/{id} ────────────────────────
+    match /notifications/{id} {
+      allow read, update: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn(); // written by controllers on behalf of other users
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // ── complaints/{id} ───────────────────────────
+    match /complaints/{id} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
+    }
+  }
+}

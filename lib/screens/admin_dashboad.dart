@@ -157,6 +157,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }).length;
   });
 
+  // ── Weekly heat data: [quarter-of-day 0-3][weekday Mon=0..Sun=6] → real
+  // token count, built from every token's actual createdAt timestamp.
+  List<List<int>> get _weeklyHeatGrid {
+    final grid = List.generate(4, (_) => List.filled(7, 0));
+    for (final t in _tokens) {
+      final ts = (t.data() as Map)['createdAt'];
+      if (ts is! Timestamp) continue;
+      final dt = ts.toDate();
+      final col = dt.weekday - 1; // Mon=0 .. Sun=6
+      final row = (dt.hour ~/ 6).clamp(0, 3); // 00-05,06-11,12-17,18-23
+      grid[row][col]++;
+    }
+    return grid;
+  }
+
   // ── Service center breakdown ──
   Map<String, int> get _centerBreakdown {
     final map = <String, int>{};
@@ -170,19 +185,56 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   // ── Actions ──
   /// Manual override — normally the assigned service provider drives ticket
-  /// status from their own dashboard. `servedAt` is only ever stamped when a
-  /// ticket is actually marked Served, never when it's merely called in.
+  /// status from their own dashboard. Delegates to
+  /// [QueueController.adminSetTokenStatus] so the queue doc's
+  /// `currentServingTokenId` and the customer's `activeQueueId` never fall
+  /// out of sync with a status change made here (a raw `.update()` used to
+  /// leave the queue permanently "stuck" if a Serving ticket was force-set
+  /// to Served/Skipped from this screen).
   Future<void> _updateTokenStatus(String id, String status) async {
-    try {
-      final update = <String, dynamic>{'status': status};
-      if (status == 'Served') {
-        update['servedAt'] = FieldValue.serverTimestamp();
-      }
-      await _db.collection('tokens').doc(id).update(update);
-      _snack('Token → $status', ok: true);
-    } catch (e) {
-      _snack('Error: $e', ok: false);
+    final error = await QueueController.adminSetTokenStatus(id, status);
+    _snack(error ?? 'Token → $status', ok: error == null);
+  }
+
+  /// Global "Call Next" shortcut — not scoped to one center, so it calls
+  /// next for whichever active service center currently has the longest
+  /// waiting line (a sensible default instead of an arbitrary queue doc).
+  void _callNextForBusiestQueue() {
+    final waitingByCenter = <String, int>{};
+    for (final t in _tokens) {
+      final d = t.data() as Map<String, dynamic>;
+      if (d['status'] != 'Waiting') continue;
+      final id = (d['queueId'] ?? d['serviceCenterId'] ?? '').toString();
+      if (id.isEmpty) continue;
+      waitingByCenter[id] = (waitingByCenter[id] ?? 0) + 1;
     }
+    if (waitingByCenter.isEmpty) {
+      _snack('No one is waiting anywhere right now.', ok: false);
+      return;
+    }
+    final busiestId =
+        waitingByCenter.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
+    _callNextToken(busiestId);
+  }
+
+  /// Real 1-based queue position for a Waiting token — counts how many
+  /// other Waiting tokens at the *same* center were created earlier.
+  int _positionOf(QueryDocumentSnapshot doc) {
+    final d = doc.data() as Map<String, dynamic>;
+    if (d['status'] != 'Waiting') return 0;
+    final centerId = (d['queueId'] ?? d['serviceCenterId'] ?? '').toString();
+    final ts = d['createdAt'];
+    if (ts is! Timestamp) return 0;
+    final created = ts.toDate();
+    final ahead = _tokens.where((t) {
+      final td = t.data() as Map<String, dynamic>;
+      if (td['status'] != 'Waiting') return false;
+      if ((td['queueId'] ?? td['serviceCenterId'] ?? '').toString() != centerId) return false;
+      final tts = td['createdAt'];
+      if (tts is! Timestamp) return false;
+      return tts.toDate().isBefore(created);
+    }).length;
+    return ahead + 1;
   }
 
   /// Delegates to the same real queue engine the provider dashboard uses,
@@ -193,11 +245,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Future<void> _deleteUser(String uid, String name) async {
-    final ok = await _confirm('Delete "$name"?', 'Removes user from Firestore.');
-    if (ok) {
-      await _db.collection('users').doc(uid).delete();
-      _snack('User removed', ok: false);
+    final ok = await _confirm('Delete "$name"?',
+        'Removes their profile from Firestore and cancels any active ticket. '
+        'Their login (Firebase Auth) is not deleted — that requires the '
+        'Firebase console or an Admin SDK backend.');
+    if (!ok) return;
+
+    // Cancel any active ticket first so it doesn't orphan-block a queue.
+    final active = await _db
+        .collection('tokens')
+        .where('userId', isEqualTo: uid)
+        .where('status', whereIn: ['Waiting', 'Serving'])
+        .limit(1)
+        .get();
+    if (active.docs.isNotEmpty) {
+      await QueueController.cancelTokenAsProvider(active.docs.first.id);
     }
+
+    await _db.collection('users').doc(uid).delete();
+    _snack('User removed', ok: false);
   }
 
   Future<void> _logout() async {
@@ -509,7 +575,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             final nm  = (d['userName']   ?? (d['userId'] ?? '—')).toString();
             final ctr = (d['serviceCenterName'] ?? 'Center').toString();
             final st  = (d['status']    ?? 'Waiting').toString();
-            final wait = i * 4 + 3;
+            final createdTs = d['createdAt'];
+            final wait = createdTs is Timestamp
+                ? _now.difference(createdTs.toDate()).inMinutes.clamp(0, 999)
+                : 0;
             final nmS  = nm.length > 8 ? '${nm.substring(0,7)}…' : nm;
             final ctrS = ctr.length > 7 ? '${ctr.substring(0,6)}…' : ctr;
             return Padding(
@@ -543,14 +612,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         const SizedBox(height: 8),
 
         Row(children: [
-          _outBtn('Call Next', _acc, () {
-            if (_queues.isNotEmpty) _callNextToken(_queues.first.id);
-          }),
+          _outBtn('Call Next', _acc, _callNextForBusiestQueue),
           const SizedBox(width: 8),
           _outBtn('View all', Colors.white38,
               () => setState(() => _navIndex = 1)),
-          const Spacer(),
-          _outBtn('Pause', _red, () {}),
         ]),
       ],
     ));
@@ -578,46 +643,55 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   // ── Counter status ──────────────────────────────
+  // Built from the real `service_centers` + `queues` collections (each
+  // center's own live queue doc tracks who it's currently serving) —
+  // there's no separate "counters" collection in this app, so this used
+  // to always show hard-coded fake tokens.
   Widget _counterStatusCard() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _db.collection('counters').snapshots(),
-      builder: (_, snap) {
-        final counters = snap.data?.docs ?? [];
-        final active = counters.where((c) => c['status'] == 'active').length;
+    if (_serviceCenters.isEmpty) {
+      return _card(child: const Padding(
+        padding: EdgeInsets.symmetric(vertical: 18),
+        child: Center(child: Text('No service centers yet.',
+            style: TextStyle(color: Colors.white38, fontSize: 12))),
+      ));
+    }
 
-        final tiles = counters.isNotEmpty
-            ? counters.take(4).map((c) {
-                final d  = c.data() as Map<String, dynamic>;
-                final tok = (d['currentToken'] ?? '—').toString();
-                final nm  = (d['name']         ?? 'Counter').toString();
-                final on  = (d['status']       ?? '') == 'active';
-                return _counterTile(tok, nm, on);
-              }).toList()
-            : [
-                _counterTile('T-104', 'Counter 1', true),
-                _counterTile('T-101', 'Counter 2', true),
-                _counterTile('T-067', 'Counter 3', true),
-                _counterTile('—',     'Counter 4', false),
-              ];
+    final queueByCenterId = <String, Map<String, dynamic>>{
+      for (final q in _queues) q.id: q.data() as Map<String, dynamic>,
+    };
 
-        return _card(child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('${active > 0 ? active : 3} / ${counters.isNotEmpty ? counters.length : 4} active',
-                style: const TextStyle(color: Colors.white38, fontSize: 11)),
-            const SizedBox(height: 10),
-            GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: 2,
-              crossAxisSpacing: 8, mainAxisSpacing: 8,
-              childAspectRatio: 2.0,
-              children: tiles,
-            ),
-          ],
-        ));
-      },
-    );
+    final centers = _serviceCenters.take(4).toList();
+    final tiles = centers.map((sc) {
+      final d = sc.data() as Map<String, dynamic>;
+      final name = (d['name'] ?? 'Center').toString();
+      final paused = (d['isPaused'] as bool?) ?? false;
+      final servingToken = queueByCenterId[sc.id]?['currentServingTokenNumber'] as String?;
+      final on = !paused && servingToken != null;
+      return _counterTile(servingToken ?? (paused ? 'Paused' : '—'), name, on);
+    }).toList();
+
+    final activeCount = centers.where((sc) {
+      final d = sc.data() as Map<String, dynamic>;
+      final paused = (d['isPaused'] as bool?) ?? false;
+      return !paused && queueByCenterId[sc.id]?['currentServingTokenNumber'] != null;
+    }).length;
+
+    return _card(child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('$activeCount / ${centers.length} centers currently serving',
+            style: const TextStyle(color: Colors.white38, fontSize: 11)),
+        const SizedBox(height: 10),
+        GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: 2,
+          crossAxisSpacing: 8, mainAxisSpacing: 8,
+          childAspectRatio: 2.0,
+          children: tiles,
+        ),
+      ],
+    ));
   }
 
   Widget _counterTile(String token, String name, bool on) {
@@ -745,29 +819,32 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 style: const TextStyle(color: Colors.white38, fontSize: 9)))
                 .toList()),
         const SizedBox(height: 6),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 7,
-            crossAxisSpacing: 4, mainAxisSpacing: 4,
-            childAspectRatio: 1.3,
-          ),
-          itemCount: 28,
-          itemBuilder: (_, i) {
-            final col       = i % 7;
-            final row       = i ~/ 7;
-            final intensity = ((col == 4 || col == 0) ? 0.9
-                : col == 2 ? 0.7 : 0.4) * (0.5 + row * 0.15);
-            final ci        = (intensity * 3).clamp(0, 3).toInt();
-            return Container(
-              decoration: BoxDecoration(
-                color: heatColors[ci],
-                borderRadius: BorderRadius.circular(3),
-              ),
-            );
-          },
-        ),
+        Builder(builder: (_) {
+          final grid = _weeklyHeatGrid;
+          final maxV = grid.expand((r) => r).fold(0, (a, b) => a > b ? a : b);
+          return GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              crossAxisSpacing: 4, mainAxisSpacing: 4,
+              childAspectRatio: 1.3,
+            ),
+            itemCount: 28,
+            itemBuilder: (_, i) {
+              final col = i % 7;
+              final row = i ~/ 7;
+              final v   = grid[row][col];
+              final ci  = maxV == 0 ? 0 : ((v / maxV) * 3).clamp(0, 3).round();
+              return Container(
+                decoration: BoxDecoration(
+                  color: heatColors[ci],
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              );
+            },
+          );
+        }),
         const SizedBox(height: 8),
         Row(children: [
           const Text('Low ', style: TextStyle(color: Colors.white38, fontSize: 9)),
@@ -784,19 +861,29 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   // ── Wait estimate gauge ──────────────────────────
   Widget _waitEstimateCard() {
-    // Per-center wait (from live data or fallback)
-    final centers = _serviceCenters.isNotEmpty
-        ? _serviceCenters.take(3).map((sc) {
-            final d = sc.data() as Map<String, dynamic>;
-            final nm = (d['name'] ?? 'Center').toString();
-            final avg = (d['avgWaitMinutes'] ?? 0) as int;
-            return MapEntry(nm, avg);
-          }).toList()
-        : [
-            const MapEntry('General Banking', 8),
-            const MapEntry('Loan Services',   22),
-            const MapEntry('Account Opening', 31),
-          ];
+    // Real per-center estimate = (# people waiting there) × that center's
+    // own avgServiceMinutes — previously read a field ('avgWaitMinutes')
+    // that no controller ever writes, so this always showed 0 or fake data.
+    final waitingByCenter = <String, int>{};
+    for (final t in _tokens) {
+      final d = t.data() as Map<String, dynamic>;
+      if (d['status'] != 'Waiting') continue;
+      final id = (d['queueId'] ?? d['serviceCenterId'] ?? '').toString();
+      if (id.isEmpty) continue;
+      waitingByCenter[id] = (waitingByCenter[id] ?? 0) + 1;
+    }
+
+    final centers = _serviceCenters.take(3).map((sc) {
+      final d = sc.data() as Map<String, dynamic>;
+      final nm = (d['name'] ?? 'Center').toString();
+      final avgMin = (d['avgServiceMinutes'] as int?) ?? 5;
+      final waiting = waitingByCenter[sc.id] ?? 0;
+      return MapEntry(nm, waiting * avgMin);
+    }).toList();
+
+    if (centers.isEmpty) {
+      centers.add(const MapEntry('No service centers yet', 0));
+    }
 
     return _card(child: Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -887,9 +974,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               style: const TextStyle(color: Colors.white38, fontSize: 12)),
           const Spacer(),
           GestureDetector(
-            onTap: () {
-              if (_queues.isNotEmpty) _callNextToken(_queues.first.id);
-            },
+            onTap: _callNextForBusiestQueue,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
               decoration: BoxDecoration(
@@ -927,7 +1012,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final uid = (d['userId']            ?? '').toString();
     final ctr = (d['serviceCenterName'] ?? '—').toString();
     final st  = (d['status']            ?? 'Waiting').toString();
-    final pos = (d['position']          ?? 0) as int;
+    final pos = st == 'Waiting' ? _positionOf(doc) : 0;
     final ts  = d['createdAt'];
     final timeStr = ts is Timestamp
         ? '${ts.toDate().hour.toString().padLeft(2,'0')}:${ts.toDate().minute.toString().padLeft(2,'0')}'
@@ -983,7 +1068,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
               // Row 2: meta info
               Row(children: [
-                _metaChip(Icons.format_list_numbered, 'Position #$pos', _acc),
+                _metaChip(Icons.format_list_numbered,
+                    st == 'Waiting' ? 'Position #$pos' : '—', _acc),
                 const SizedBox(width: 8),
                 _metaChip(Icons.schedule_outlined, timeStr, _amb),
                 const SizedBox(width: 8),
@@ -1335,7 +1421,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           _dlgRow(Icons.confirmation_number_outlined, 'Token',    d['tokenNumber']),
           _dlgRow(Icons.person_outline,               'User',     d['userName']),
           _dlgRow(Icons.business_outlined,            'Center',   d['serviceCenterName']),
-          _dlgRow(Icons.format_list_numbered,         'Position', d['position']?.toString()),
+          _dlgRow(Icons.format_list_numbered, 'Position',
+              st == 'Waiting' ? '#${_positionOf(doc)}' : null),
           _dlgRow(Icons.access_time_outlined,         'Created',  _fmtTs(d['createdAt'])),
           _dlgRow(Icons.check_circle_outline,         'Served',   _fmtTs(d['servedAt'])),
           const SizedBox(height: 14),
@@ -1480,13 +1567,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
   }
 
-  Color _urgencyColor(String u) {
-    switch (u.toLowerCase()) {
-      case 'high':   return _red;
-      case 'medium': return _amb;
-      default:       return _grn;
-    }
-  }
 }
 
 // ══════════════════════════════════════════════════════
